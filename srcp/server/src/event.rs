@@ -2,9 +2,9 @@ use ::client::Client;
 
 pub enum Event {
     Identify(Client),
-    Unknown,
+    Unknown(String),
 }
 
-pub fn parse(cmdstr: String) -> Result<Event, String> {
-    Ok(Event::Unknown)
+pub fn parse(cmdstr: &String) -> Event {
+    Event::Unknown(cmdstr.clone())
 }
