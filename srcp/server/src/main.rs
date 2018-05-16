@@ -6,7 +6,7 @@ use std::net;
 use std::thread;
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex, Weak};
-use std::io::Read;
+use std::io::{Read, Write};
 use event::Event;
 use client::Client;
 
@@ -20,8 +20,11 @@ struct Command {
     cmd_msg: String,
 }
 
-fn execute(cmd: Event, clients: &Arc<Mutex<Vec<Client>>>) -> Result<(), String> {
-    Ok(())
+fn execute(cmd: &Command, clients: &Arc<Mutex<Vec<Client>>>) {
+    let stream = cmd.sender.conn.upgrade().unwrap();
+
+    stream.lock().unwrap().write(cmd.cmd_msg.as_bytes()).unwrap();
+    stream.lock().unwrap().flush().unwrap();
 }
 
 fn main() {
@@ -35,8 +38,9 @@ fn main() {
     let events = thread::spawn(move || {
         println!("Event thread online.");
 
-        for message in receiver {
-            println!("{}: {}", message.sender.user, message.cmd_msg);
+        for command in receiver {
+            execute(&command, &allclients.upgrade().unwrap());
+            println!("{}: {}", command.sender.user, command.cmd_msg);
         }
     });
 
