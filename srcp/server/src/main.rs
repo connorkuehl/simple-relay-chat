@@ -34,10 +34,19 @@ fn main() {
         pool.execute(move || {
             loop {
                 let mut message = String::new();
-                if stream.read_to_string(&mut message).unwrap() > 0 {
-                    sndr.send(message).unwrap();
+                if let Ok(bytes_read) = stream.read_to_string(&mut message) {
+                    if bytes_read > 0 {
+                        sndr.send(message).unwrap();
+                    } else {
+                        break;
+                    }
+                } else {
+                    stream.shutdown(net::Shutdown::Both);
+                    break;
                 }
             }
+
+            println!("Client disconnected.");
         });
     }
 
