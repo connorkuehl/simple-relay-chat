@@ -5,6 +5,7 @@ use threadpool::ThreadPool;
 use std::net;
 use std::thread;
 use std::sync::mpsc;
+use std::sync::{Arc, Mutex};
 use std::io::Read;
 use event::Event;
 
@@ -18,14 +19,18 @@ fn main() {
 
     let (sender, receiver) = mpsc::channel();
 
+    let clients = Arc::new(Mutex::new(vec![]));
+
+    let allclients = Arc::downgrade(&clients);
     let events = thread::spawn(move || {
-        let mut clients = vec![];
         println!("Event thread online.");
 
         for received in receiver {
             match received {
                 Event::Identify(client) => {
-                    clients.push(client);
+                    if let Some(clients) = allclients.upgrade() {
+                        clients.lock().unwrap().push(client);
+                    }
                 },
                 _ => (),
             }
@@ -40,9 +45,11 @@ fn main() {
         let mut stream = stream.unwrap();
         println!("Incoming connection!");
 
+        let allclients = Arc::downgrade(&clients);
         let sndr = sender.clone();
         pool.execute(move || {
-            if let Ok(client) = client::identify(&mut stream) {
+            let connected = allclients.upgrade().unwrap();
+            if let Ok(client) = client::identify(&mut stream, &connected) {
                 sndr.send(Event::Identify(client)).unwrap();
             } else {
                 stream.shutdown(net::Shutdown::Both).unwrap();
