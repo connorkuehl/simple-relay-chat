@@ -78,9 +78,6 @@ fn main() {
                     } else {
                         break;
                     }
-                } else {
-                    stream.lock().unwrap().shutdown(net::Shutdown::Both).unwrap();
-                    break;
                 }
             }
 
