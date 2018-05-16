@@ -41,7 +41,7 @@ fn main() {
                         break;
                     }
                 } else {
-                    stream.shutdown(net::Shutdown::Both);
+                    stream.shutdown(net::Shutdown::Both).unwrap();
                     break;
                 }
             }
