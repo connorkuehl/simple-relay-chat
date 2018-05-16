@@ -6,6 +6,10 @@ use std::net;
 use std::thread;
 use std::sync::mpsc;
 use std::io::Read;
+use event::Event;
+
+mod client;
+mod event;
 
 const NCLIENT: usize = 32;
 
@@ -15,10 +19,16 @@ fn main() {
     let (sender, receiver) = mpsc::channel();
 
     let events = thread::spawn(move || {
+        let mut clients = vec![];
         println!("Event thread online.");
 
         for received in receiver {
-            println!("Event: {}", received);
+            match received {
+                Event::Identify(client) => {
+                    clients.push(client);
+                },
+                _ => (),
+            }
         }
     });
 
@@ -32,11 +42,17 @@ fn main() {
 
         let sndr = sender.clone();
         pool.execute(move || {
+            if let Ok(client) = client::identify(&mut stream) {
+                sndr.send(Event::Identify(client)).unwrap();
+            } else {
+                stream.shutdown(net::Shutdown::Both).unwrap();
+            }
+
             loop {
                 let mut message = String::new();
                 if let Ok(bytes_read) = stream.read_to_string(&mut message) {
                     if bytes_read > 0 {
-                        sndr.send(message).unwrap();
+                        sndr.send(event::parse(message).unwrap()).unwrap();
                     } else {
                         break;
                     }
