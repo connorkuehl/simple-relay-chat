@@ -4,16 +4,14 @@ use threadpool::ThreadPool;
 
 use std::net;
 use std::thread;
-use std::sync::mpsc;
 use std::sync::{Arc, Mutex, Weak};
 use std::io::{Read, Write};
-use event::Event;
-use client::Client;
 
 mod client;
 mod event;
 
 const NCLIENT: usize = 32;
+const MSGSIZE: usize = 1024;
 
 fn main() {
     let listener = net::TcpListener::bind("0.0.0.0:6667").unwrap();
@@ -35,13 +33,14 @@ fn main() {
 
         pool.execute(move || {
             loop {
-                let mut message = [0; 128];
+                let mut message = [0; MSGSIZE];
                 if let Ok(bytes_read) = stream.read(&mut message) {
                     if bytes_read > 0 {
-                        let msg = String::from_utf8(message.to_vec()).unwrap();
+                        let msg = message.to_vec();
+                        let msg = String::from_utf8_lossy(&msg);
                         println!("got '{}'", msg);
-                        stream.write(msg.as_bytes()).unwrap();
-                        stream.flush().unwrap();
+                        stream.write(&message).expect("echo");
+                        stream.flush().expect("echo flush");
                     } else {
                         break;
                     }
