@@ -4,7 +4,6 @@ use threadpool::ThreadPool;
 
 use std::net;
 use std::thread;
-use std::sync::{Arc, Mutex, Weak};
 use std::io::{Read, Write};
 
 mod client;
@@ -14,7 +13,7 @@ const NCLIENT: usize = 32;
 const MSGSIZE: usize = 1024;
 
 fn main() {
-    let listener = net::TcpListener::bind("0.0.0.0:6667").unwrap();
+    let listener = net::TcpListener::bind("0.0.0.0:6667").expect("bind");
 
     //let (sender, receiver): (mpsc::Sender<Command>, mpsc::Receiver<Command>) = mpsc::channel();
     //let (sender, receiver) = mpsc::channel();
@@ -28,7 +27,7 @@ fn main() {
     println!("Waiting for connections...");
 
     for stream in listener.incoming() {
-        let mut stream = stream.unwrap();
+        let mut stream = stream.expect("incoming");
         println!("Incoming connection!");
 
         pool.execute(move || {
@@ -51,6 +50,6 @@ fn main() {
         });
     }
 
-    events.join().unwrap();
+    events.join().expect("events join");
     pool.join();
 }
