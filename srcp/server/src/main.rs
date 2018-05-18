@@ -6,9 +6,6 @@ use std::net;
 use std::thread;
 use std::io::{Read, Write};
 
-mod client;
-mod event;
-
 const NCLIENT: usize = 32;
 const MSGSIZE: usize = 1024;
 
