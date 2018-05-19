@@ -1,4 +1,3 @@
-use ::net;
 use ::Client;
 use ::std::io::Write;
 
@@ -8,10 +7,9 @@ const OK: usize = 0;
 const USERNAME_UNAVAILABLE: usize = 4;
 
 pub fn execute(event: Event, peers: &mut Vec<Client>) {
-    let mut retcode = OK;
     let mut event = event;
 
-    retcode = match event.kind {
+    let retcode = match event.kind {
         EventKind::Identify(_) => on_identify(&mut event, peers),
         _ => 0,
     };
@@ -24,7 +22,7 @@ pub fn execute(event: Event, peers: &mut Vec<Client>) {
 fn on_identify(event: &mut Event, peers: &mut Vec<Client>) -> usize {
     let username = match &event.kind {
         EventKind::Identify(user) => user,
-        _ => return 999,
+        _ => panic!("on_identify received non-identify event"),
     };
 
     if peers.iter().any(|p| p.user.eq(username)) {
