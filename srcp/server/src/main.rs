@@ -6,6 +6,7 @@ use std::net;
 use std::thread;
 use std::sync;
 use std::io::Read;
+use std::collections::HashMap;
 
 use event::Event;
 
@@ -15,10 +16,16 @@ const MSGSIZE: usize = 1024;
 mod action;
 mod event;
 
+pub struct Client {
+    pub user: String,
+    pub conn: net::TcpStream,
+}
+
 fn parse_message(s: String, from: &net::TcpStream) -> Event {
     Event {
         from: from.try_clone().expect("try_clone"),
         kind: event::kind_parse(&s),
+        contents: s,
     }
 }
 
@@ -57,6 +64,7 @@ fn handle_client(stream: net::TcpStream, event_queue: sync::mpsc::Sender<Event>)
 }
 
 fn main() {
+    let mut clients = HashMap::new();
     let listener = net::TcpListener::bind("0.0.0.0:6667").expect("bind");
 
     let (sender, events_recv): (std::sync::mpsc::Sender<Event>, std::sync::mpsc::Receiver<Event>) = std::sync::mpsc::channel();
@@ -66,7 +74,7 @@ fn main() {
 
         for event in events_recv {
             let mut event = event;
-            action::execute(event);
+            action::execute(event, &mut clients);
         }
     });
 
