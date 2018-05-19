@@ -10,9 +10,17 @@ use std::io::{Read, Write};
 const NCLIENT: usize = 32;
 const MSGSIZE: usize = 1024;
 
-struct Client;
+enum EventType {
+    Identify,
+}
 
-fn handle_client(stream: net::TcpStream, event_queue: sync::mpsc::Sender<Client>) {
+struct Event;
+
+fn parse_message(s: String) -> Result<Event, String> {
+    Ok(Event {})
+}
+
+fn handle_client(stream: net::TcpStream, event_queue: sync::mpsc::Sender<Event>) {
     let mut stream = stream;
     let remote = stream.peer_addr().expect("peer_addr");
 
@@ -25,14 +33,22 @@ fn handle_client(stream: net::TcpStream, event_queue: sync::mpsc::Sender<Client>
                 println!("{} has disconnected.", remote);
                 break;
             },
-            Ok(bytes_read) => {
-                if let Err(e) = event_queue.send(Client {}) {
-                    eprintln!("cannot send client message to event thread: {}", e);
-                    eprintln!("closing connection");
-                    break;
+            Ok(_bytes_read) => {
+                let message = message.to_vec();
+                let message = String::from_utf8_lossy(&message).into_owned();
+                match parse_message(message) {
+                    Ok(event) => {
+                        if let Err(e) = event_queue.send(event) {
+                            eprintln!("cannot send client message to event thread: {}", e);
+                            eprintln!("closing connection");
+                            break;
+                        }
+                    },
+                    Err(reply) => {
+                        stream.write(reply.as_bytes()).expect("error reply write");
+                        stream.flush().expect("flush");
+                    },
                 }
-
-                // forward message to event thread
             },
             Err(_) => break,
         }
@@ -45,7 +61,6 @@ fn handle_client(stream: net::TcpStream, event_queue: sync::mpsc::Sender<Client>
 
 fn main() {
     let listener = net::TcpListener::bind("0.0.0.0:6667").expect("bind");
-    let mut clients = vec![];
 
     let (sender, events_recv) = std::sync::mpsc::channel();
 
@@ -53,7 +68,6 @@ fn main() {
         println!("Event thread online.");
 
         for event in events_recv {
-            clients.push(event);
         }
     });
 
