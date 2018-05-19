@@ -5,13 +5,14 @@ use threadpool::ThreadPool;
 use std::net;
 use std::thread;
 use std::sync;
-use std::io::{Read, Write};
+use std::io::Read;
 
-use event::{Event, EventKind};
+use event::Event;
 
 const NCLIENT: usize = 32;
 const MSGSIZE: usize = 1024;
 
+mod action;
 mod event;
 
 fn parse_message(s: String, from: &net::TcpStream) -> Event {
@@ -65,16 +66,7 @@ fn main() {
 
         for event in events_recv {
             let mut event = event;
-            match event.kind {
-                EventKind::Identify(user) => {
-                    event.from.write(user.as_bytes()).unwrap();
-                    event.from.flush().unwrap();
-                },
-                EventKind::Error(err) => {
-                    event.from.write(err.as_bytes()).unwrap();
-                    event.from.flush().unwrap();
-                },
-            }
+            action::execute(event);
         }
     });
 
