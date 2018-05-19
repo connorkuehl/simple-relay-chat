@@ -57,9 +57,9 @@ fn handle_client(stream: net::TcpStream, event_queue: sync::mpsc::Sender<Event>)
         }
     }
 
-    if let Ok(_) = stream.shutdown(net::Shutdown::Both) {
-        println!("Disconnected from {}.", remote);
-    } 
+    match stream.shutdown(net::Shutdown::Both) {
+        _ => println!("Disconnected from {}.", remote),
+    }
 }
 
 fn main() {
