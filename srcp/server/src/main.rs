@@ -4,37 +4,57 @@ use threadpool::ThreadPool;
 
 use std::net;
 use std::thread;
+use std::sync;
 use std::io::{Read, Write};
 
 const NCLIENT: usize = 32;
 const MSGSIZE: usize = 1024;
 
-fn handle_client(stream: net::TcpStream) {
+struct Client;
+
+fn handle_client(stream: net::TcpStream, event_queue: sync::mpsc::Sender<Client>) {
     let mut stream = stream;
+    let remote = stream.peer_addr().expect("peer_addr");
+
+    println!("{} has connected.", remote);
+
     loop {
         let mut message = [0; MSGSIZE];
-        if let Ok(bytes_read) = stream.read(&mut message) {
-            if bytes_read > 0 {
-                let msg = message.to_vec();
-                let msg = String::from_utf8_lossy(&msg);
-                let msg = msg.trim_right();
-                println!("got '{}'", msg);
-                stream.write(&message).expect("echo");
-                stream.flush().expect("echo flush");
-            } else {
+        match stream.read(&mut message) {
+            Ok(0) => {
+                println!("{} has disconnected.", remote);
                 break;
-            }
-        }
+            },
+            Ok(bytes_read) => {
+                if let Err(e) = event_queue.send(Client {}) {
+                    eprintln!("cannot send client message to event thread: {}", e);
+                    eprintln!("closing connection");
+                    break;
+                }
 
-        println!("Client disconnected.");
+                // forward message to event thread
+            },
+            Err(_) => break,
+        }
     }
+
+    if let Ok(_) = stream.shutdown(net::Shutdown::Both) {
+        println!("Disconnected from {}.", remote);
+    } 
 }
 
 fn main() {
     let listener = net::TcpListener::bind("0.0.0.0:6667").expect("bind");
+    let mut clients = vec![];
+
+    let (sender, events_recv) = std::sync::mpsc::channel();
 
     let events = thread::spawn(move || {
         println!("Event thread online.");
+
+        for event in events_recv {
+            clients.push(event);
+        }
     });
 
     let pool = ThreadPool::new(NCLIENT);
@@ -44,8 +64,9 @@ fn main() {
     for stream in listener.incoming() {
         if let Ok(stream) = stream {
             println!("Incoming connection!");
+            let events_queue = sender.clone();
             pool.execute(move || {
-                handle_client(stream);
+                handle_client(stream, events_queue);
             });
         } else {
             eprintln!("Failed to accept incoming connection.");
