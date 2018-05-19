@@ -2,6 +2,7 @@ use ::net;
 
 pub enum EventKind {
     Identify(String),
+    Quit,
     Error(String),
 }
 
@@ -21,10 +22,15 @@ pub fn kind_parse(s: &String) -> EventKind {
 
     match command {
         "IDENTIFY" => identify(args.unwrap()),
+        "QUIT" => quit(),
         _ => EventKind::Error("command not recognized".into()),
     }
 }
 
 fn identify(args: &str) -> EventKind {
     EventKind::Identify(args.into())    
+}
+
+fn quit() -> EventKind {
+    EventKind::Quit
 }
