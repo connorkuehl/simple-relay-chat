@@ -8,6 +8,7 @@ pub enum EventKind {
 pub struct Event {
     pub from: net::TcpStream,
     pub kind: EventKind,
+    pub contents: String,
 }
 
 pub fn kind_parse(s: &String) -> EventKind {
