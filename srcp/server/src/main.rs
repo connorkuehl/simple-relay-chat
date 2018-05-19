@@ -6,7 +6,6 @@ use std::net;
 use std::thread;
 use std::sync;
 use std::io::Read;
-use std::collections::HashMap;
 
 use event::Event;
 
@@ -64,7 +63,7 @@ fn handle_client(stream: net::TcpStream, event_queue: sync::mpsc::Sender<Event>)
 }
 
 fn main() {
-    let mut clients = HashMap::new();
+    let mut clients = vec![];
     let listener = net::TcpListener::bind("0.0.0.0:6667").expect("bind");
 
     let (sender, events_recv): (std::sync::mpsc::Sender<Event>, std::sync::mpsc::Receiver<Event>) = std::sync::mpsc::channel();
