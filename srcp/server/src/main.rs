@@ -7,17 +7,18 @@ use std::thread;
 use std::sync;
 use std::io::{Read, Write};
 
+use event::{Event, EventKind};
+
 const NCLIENT: usize = 32;
 const MSGSIZE: usize = 1024;
 
-enum EventType {
-    Identify,
-}
+mod event;
 
-struct Event;
-
-fn parse_message(s: String) -> Result<Event, String> {
-    Ok(Event {})
+fn parse_message(s: String, from: &net::TcpStream) -> Event {
+    Event {
+        from: from.try_clone().expect("try_clone"),
+        kind: event::kind_parse(&s),
+    }
 }
 
 fn handle_client(stream: net::TcpStream, event_queue: sync::mpsc::Sender<Event>) {
@@ -36,18 +37,13 @@ fn handle_client(stream: net::TcpStream, event_queue: sync::mpsc::Sender<Event>)
             Ok(_bytes_read) => {
                 let message = message.to_vec();
                 let message = String::from_utf8_lossy(&message).into_owned();
-                match parse_message(message) {
-                    Ok(event) => {
-                        if let Err(e) = event_queue.send(event) {
-                            eprintln!("cannot send client message to event thread: {}", e);
-                            eprintln!("closing connection");
-                            break;
-                        }
-                    },
-                    Err(reply) => {
-                        stream.write(reply.as_bytes()).expect("error reply write");
-                        stream.flush().expect("flush");
-                    },
+
+                let event = parse_message(message, &stream);
+
+                if let Err(e) = event_queue.send(event) {
+                    eprintln!("cannot send client message to event thread: {}", e);
+                    eprintln!("closing connection");
+                    break;
                 }
             },
             Err(_) => break,
@@ -62,12 +58,23 @@ fn handle_client(stream: net::TcpStream, event_queue: sync::mpsc::Sender<Event>)
 fn main() {
     let listener = net::TcpListener::bind("0.0.0.0:6667").expect("bind");
 
-    let (sender, events_recv) = std::sync::mpsc::channel();
+    let (sender, events_recv): (std::sync::mpsc::Sender<Event>, std::sync::mpsc::Receiver<Event>) = std::sync::mpsc::channel();
 
     let events = thread::spawn(move || {
         println!("Event thread online.");
 
         for event in events_recv {
+            let mut event = event;
+            match event.kind {
+                EventKind::Identify(user) => {
+                    event.from.write(user.as_bytes()).unwrap();
+                    event.from.flush().unwrap();
+                },
+                EventKind::Error(err) => {
+                    event.from.write(err.as_bytes()).unwrap();
+                    event.from.flush().unwrap();
+                },
+            }
         }
     });
 
