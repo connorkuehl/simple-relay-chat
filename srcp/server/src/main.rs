@@ -18,6 +18,7 @@ mod event;
 pub struct Client {
     pub user: String,
     pub conn: net::TcpStream,
+    pub rooms: Vec<String>,
 }
 
 fn parse_message(s: String, from: &net::TcpStream) -> Event {
