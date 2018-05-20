@@ -42,10 +42,10 @@ fn handle_client(stream: net::TcpStream, event_queue: sync::mpsc::Sender<Event>)
                 println!("{} has disconnected.", remote);
                 break;
             },
-            Ok(_bytes_read) => {
+            Ok(bytes_read) => {
                 let message = std::str::from_utf8(&buf).expect("from utf8");
 
-                let event = parse_message(message, &stream);
+                let event = parse_message(&message[..bytes_read], &stream);
 
                 if let Err(e) = event_queue.send(event) {
                     eprintln!("cannot send client message to event thread: {}", e);
