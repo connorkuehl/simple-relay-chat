@@ -21,11 +21,11 @@ pub struct Client {
     pub rooms: Vec<String>,
 }
 
-fn parse_message(s: String, from: &net::TcpStream) -> Event {
+fn parse_message(s: &str, from: &net::TcpStream) -> Event {
     Event {
         from: from.try_clone().expect("try_clone"),
-        kind: event::kind_parse(&s),
-        contents: s,
+        kind: event::kind_parse(s),
+        contents: s.into(),
     }
 }
 
@@ -36,15 +36,14 @@ fn handle_client(stream: net::TcpStream, event_queue: sync::mpsc::Sender<Event>)
     println!("{} has connected.", remote);
 
     loop {
-        let mut message = [0; MSGSIZE];
-        match stream.read(&mut message) {
+        let mut buf = [0; MSGSIZE];
+        match stream.read(&mut buf) {
             Ok(0) => {
                 println!("{} has disconnected.", remote);
                 break;
             },
             Ok(_bytes_read) => {
-                let message = message.to_vec();
-                let message = String::from_utf8_lossy(&message).into_owned();
+                let message = std::str::from_utf8(&buf).expect("from utf8");
 
                 let event = parse_message(message, &stream);
 
