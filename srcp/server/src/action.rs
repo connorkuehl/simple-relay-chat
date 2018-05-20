@@ -5,6 +5,9 @@ use ::Client;
 use ::event::{Event, EventKind};
 
 const OK: usize = 0;
+const ROOM_DOESNT_EXIST: usize = 1;
+const USER_DOESNT_EXIST: usize = 2;
+const POORLY_FORMED_COMMAND: usize = 3;
 const USERNAME_UNAVAILABLE: usize = 4;
 
 pub fn execute(event: Event, peers: &mut Vec<Client>) {
@@ -50,8 +53,9 @@ fn on_quit(event: &mut Event, peers: &mut Vec<Client>) -> usize {
     // probably just call on_leave for each of them.
 
     let addr = event.from.peer_addr().expect("peer_addr");
-    let index = peers.iter().position(|x| x.conn.peer_addr().expect("peer_addr").eq(&addr)).unwrap();
-    peers.remove(index);
+    if let Some(index) = peers.iter().position(|x| x.conn.peer_addr().expect("peer_addr").eq(&addr)) {
+        peers.remove(index);
+    }
 
     match event.from.shutdown(net::Shutdown::Both) {
         _ => (),
