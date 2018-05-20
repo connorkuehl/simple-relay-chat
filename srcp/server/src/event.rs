@@ -16,6 +16,7 @@ pub struct Event {
 
 pub fn kind_parse(s: &str) -> EventKind {
     let to_parse = s.trim();
+
     let command = match to_parse.split_whitespace().nth(0) {
         Some(first) => first,
         None => return EventKind::Error,
