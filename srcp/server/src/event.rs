@@ -3,6 +3,7 @@ use ::net;
 pub enum EventKind {
     Identify(String),
     List(Option<String>),
+    Join(String),
     Quit,
     Error,
 }
@@ -13,16 +14,18 @@ pub struct Event {
     pub contents: String,
 }
 
-pub fn kind_parse(s: &String) -> EventKind {
-    let command = match s.split_whitespace().nth(0) {
+pub fn kind_parse(s: &str) -> EventKind {
+    let to_parse = s.trim();
+    let command = match to_parse.split_whitespace().nth(0) {
         Some(first) => first,
         None => return EventKind::Error,
     };
 
-    let args = s.split_whitespace().skip(1).next();
+    let args = to_parse.split_whitespace().skip(1).next();
 
     match command {
         "IDENTIFY" => identify(args),
+        "JOIN" => join(args),
         "LIST" => list(args),
         "QUIT" => quit(),
         _ => EventKind::Error,
@@ -32,6 +35,13 @@ pub fn kind_parse(s: &String) -> EventKind {
 fn identify(args: Option<&str>) -> EventKind {
     match args {
         Some(username) => EventKind::Identify(username.into()),
+        None => EventKind::Error,
+    }
+}
+
+fn join(args: Option<&str>) -> EventKind {
+    match args {
+        Some(room) => EventKind::Join(room.into()),
         None => EventKind::Error,
     }
 }

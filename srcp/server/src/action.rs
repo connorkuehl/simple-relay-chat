@@ -16,12 +16,13 @@ pub fn execute(event: Event, peers: &mut Vec<Client>) {
 
     let (retcode, reply) = match event.kind {
         EventKind::Identify(_) => on_identify(&mut event, peers),
+        EventKind::Join(_) => on_join(&mut event, peers),
         EventKind::List(_) => on_list(&mut event, peers),
         EventKind::Quit => on_quit(&mut event, peers),
         _ => (999, String::from("Unknown")),
     };
 
-    let response = format!("{} {}", retcode, reply);
+    let response = format!("{} {}\n", retcode, reply);
     event.from.write(response.as_bytes());
     event.from.flush();
 }
@@ -47,6 +48,22 @@ fn on_identify(event: &mut Event, peers: &mut Vec<Client>) -> (usize, String) {
     (OK, event.contents.clone())
 }
 
+fn on_join(event: &mut Event, peers: &mut Vec<Client>) -> (usize, String) {
+    let room = match &event.kind {
+        EventKind::Join(r) => r,
+        _ => panic!("on_join received non-join event"),
+    };
+
+    let room = room.to_string();
+
+    let addr = event.from.peer_addr().expect("peer_addr");
+    if let Some(index) = peers.iter().position(|x| x.conn.peer_addr().expect("peer_addr").eq(&addr)) {
+        peers[index].rooms.push(room);
+    }
+
+    (OK, event.contents.clone())
+}
+
 fn on_list(event: &mut Event, peers: &mut Vec<Client>) -> (usize, String) {
     let to_list = match &event.kind {
         EventKind::List(option) => option,
@@ -55,6 +72,7 @@ fn on_list(event: &mut Event, peers: &mut Vec<Client>) -> (usize, String) {
 
     let reply = match to_list {
         Some(room) => {
+            println!("LIST on '{}'", room);
             let clients: Vec<String> = peers.iter()
                 .filter(|c| c.rooms.iter().any(|r| r.eq(room)))
                 .map(|c| c.user.clone())
