@@ -4,6 +4,7 @@ pub enum EventKind {
     Identify(String),
     List(Option<String>),
     Join(String),
+    Say(String, String),
     Quit,
     Error,
 }
@@ -22,35 +23,42 @@ pub fn kind_parse(s: &str) -> EventKind {
         None => return EventKind::Error,
     };
 
-    let args = to_parse.split_whitespace().skip(1).next();
+    let args: Vec<&str> = to_parse.split_whitespace().skip(1).collect();
 
     match command {
         "IDENTIFY" => identify(args),
         "JOIN" => join(args),
         "LIST" => list(args),
+        "SAY" => say(args),
         "QUIT" => quit(),
         _ => EventKind::Error,
     }
 }
 
-fn identify(args: Option<&str>) -> EventKind {
-    match args {
-        Some(username) => EventKind::Identify(username.into()),
-        None => EventKind::Error,
+fn identify(args: Vec<&str>) -> EventKind {
+    EventKind::Identify(args[0].into())
+}
+
+fn join(args: Vec<&str>) -> EventKind {
+    EventKind::Join(args[0].into())
+}
+
+fn list(args: Vec<&str>) -> EventKind {
+    if args.len() < 1 {
+        EventKind::List(None)
+    } else {
+        EventKind::List(Some(args[0].into()))
     }
 }
 
-fn join(args: Option<&str>) -> EventKind {
-    match args {
-        Some(room) => EventKind::Join(room.into()),
-        None => EventKind::Error,
-    }
-}
+fn say(args: Vec<&str>) -> EventKind {
+    if args.len() < 2 {
+        EventKind::Error
+    } else {
+        let room = args[0];
+        let message = args[1..args.len()].join(" ");
 
-fn list(args: Option<&str>) -> EventKind {
-    match args {
-        Some(room) => EventKind::List(Some(room.into())),
-        None => EventKind::List(None),
+        EventKind::Say(room.into(), message.into())
     }
 }
 
