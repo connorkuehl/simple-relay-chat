@@ -9,19 +9,18 @@ const OK: usize = 0;
 /*
 const ROOM_DOESNT_EXIST: usize = 1;
 const USER_DOESNT_EXIST: usize = 2;
-const POORLY_FORMED_COMMAND: usize = 3;
 */
+const POORLY_FORMED_COMMAND: usize = 3;
 const USERNAME_UNAVAILABLE: usize = 4;
 
-pub fn execute(event: Event, peers: &mut Vec<Client>) {
-    let mut event = event;
-
+pub fn execute(mut event: Event, peers: &mut Vec<Client>) {
     let (retcode, reply) = match event.kind {
         EventKind::Identify(_) => on_identify(&mut event, peers),
         EventKind::Join(_) => on_join(&mut event, peers),
         EventKind::List(_) => on_list(&mut event, peers),
         EventKind::Say(_, _) => on_say(&mut event, peers),
         EventKind::Quit => on_quit(&mut event, peers),
+        EventKind::Error => (POORLY_FORMED_COMMAND, event.contents),
         _ => (999, String::from("Unknown")),
     };
 
