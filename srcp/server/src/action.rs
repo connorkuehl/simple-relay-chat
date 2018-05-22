@@ -7,8 +7,8 @@ use ::Client;
 use ::event::{Event, EventKind};
 
 const OK: usize = 0;
-/*
 const ROOM_DOESNT_EXIST: usize = 1;
+/*
 const USER_DOESNT_EXIST: usize = 2;
 */
 const POORLY_FORMED_COMMAND: usize = 3;
@@ -125,14 +125,18 @@ fn on_say(event: &mut Event, peers: &mut Vec<Client>) -> (usize, String) {
 
     let final_msg = format!("{} {} {} {} {}\n", OK, sender, time, room, message);
 
-    let send_to = peers.into_iter()
-        .filter(|p| p.rooms.iter().any(|r| r.eq(room)));
+    let mut send_to = peers.into_iter()
+        .filter(|p| p.rooms.iter().any(|r| r.eq(room)))
+        .peekable();
+
+    if send_to.peek().is_none() {
+        return (ROOM_DOESNT_EXIST, event.contents.clone());
+    }
 
     for client in send_to {
         client.conn.write(final_msg.as_bytes()).expect("write");
         client.conn.flush().expect("flush");
     }
-
 
     (OK, event.contents.clone())
 }
