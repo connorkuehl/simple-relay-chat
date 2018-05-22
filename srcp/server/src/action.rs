@@ -1,3 +1,4 @@
+use ::std;
 use ::net;
 use ::std::collections::HashSet;
 use ::std::io::Write;
@@ -114,7 +115,12 @@ fn on_say(event: &mut Event, peers: &mut Vec<Client>) -> (usize, String) {
         None => panic!("user"),
     };
 
-    let final_msg = format!("{} {} {} {}\n", OK, sender, room, message);
+    let time = match std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH) {
+        Ok(t) => t.as_secs(),
+        Err(_) => 0,
+    };
+
+    let final_msg = format!("{} {} {} {} {}\n", OK, sender, time, room, message);
 
     let send_to = peers.into_iter()
         .filter(|p| p.rooms.iter().any(|r| r.eq(room)));
