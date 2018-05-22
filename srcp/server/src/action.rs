@@ -77,13 +77,20 @@ fn on_list(event: &mut Event, peers: &mut Vec<Client>) -> (usize, String) {
         _ => panic!("on_list received non-list event"),
     };
 
+    let mut retcode = OK;
+
     let reply = match to_list {
         Some(room) => {
             let clients: Vec<String> = peers.iter()
                 .filter(|c| c.rooms.iter().any(|r| r.eq(room)))
                 .map(|c| c.user.clone())
                 .collect();
-            clients.join(" ")
+            if clients.len() > 0 {
+                clients.join(" ")
+            } else {
+                retcode = ROOM_DOESNT_EXIST;
+                event.contents.clone()
+            }
         },
         None => {
             let size = peers.iter().map(|p| &p.rooms).fold(0, |acc, v| acc + v.len() + 1);
@@ -104,7 +111,7 @@ fn on_list(event: &mut Event, peers: &mut Vec<Client>) -> (usize, String) {
         },
     };
 
-    (OK, reply)
+    (retcode, reply)
 }
 
 fn on_say(event: &mut Event, peers: &mut Vec<Client>) -> (usize, String) {
