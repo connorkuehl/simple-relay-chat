@@ -36,18 +36,18 @@ pub fn kind_parse(s: &str) -> EventKind {
 }
 
 fn identify(args: Vec<&str>) -> EventKind {
-    EventKind::Identify(args[0].into())
+    EventKind::Identify(String::from(args[0]))
 }
 
 fn join(args: Vec<&str>) -> EventKind {
-    EventKind::Join(args[0].into())
+    EventKind::Join(String::from(args[0]))
 }
 
 fn list(args: Vec<&str>) -> EventKind {
     if args.len() < 1 {
         EventKind::List(None)
     } else {
-        EventKind::List(Some(args[0].into()))
+        EventKind::List(Some(String::from(args[0])))
     }
 }
 
@@ -58,7 +58,7 @@ fn say(args: Vec<&str>) -> EventKind {
         let room = args[0];
         let message = args[1..args.len()].join(" ");
 
-        EventKind::Say(room.into(), message.into())
+        EventKind::Say(String::from(room), String::from(message))
     }
 }
 

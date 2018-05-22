@@ -23,14 +23,13 @@ pub struct Client {
 
 fn parse_message(s: &str, from: &net::TcpStream) -> Event {
     Event {
-        from: from.try_clone().expect("try_clone"),
+        from: from.try_clone().expect("parse_message: try_clone"),
         kind: event::kind_parse(s),
-        contents: s.into(),
+        contents: String::from(s),
     }
 }
 
-fn handle_client(stream: net::TcpStream, event_queue: sync::mpsc::Sender<Event>) {
-    let mut stream = stream;
+fn handle_client(mut stream: net::TcpStream, event_queue: sync::mpsc::Sender<Event>) {
     let remote = stream.peer_addr().expect("peer_addr");
 
     println!("{} has connected.", remote);
@@ -66,7 +65,7 @@ fn main() {
     let mut clients = vec![];
     let listener = net::TcpListener::bind("0.0.0.0:6667").expect("bind");
 
-    let (sender, events_recv): (std::sync::mpsc::Sender<Event>, std::sync::mpsc::Receiver<Event>) = std::sync::mpsc::channel();
+    let (sender, events_recv) = std::sync::mpsc::channel();
 
     let events = thread::spawn(move || {
         println!("Event thread online.");
