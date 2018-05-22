@@ -17,6 +17,7 @@ mod event;
 
 pub struct Client {
     pub user: String,
+    pub addr: net::SocketAddr,
     pub conn: net::TcpStream,
     pub rooms: Vec<String>,
 }
@@ -24,6 +25,7 @@ pub struct Client {
 fn parse_message(s: &str, from: &net::TcpStream) -> Event {
     Event {
         from: from.try_clone().expect("parse_message: try_clone"),
+        addr: from.peer_addr().expect("parse_message: peer_addr"),
         kind: event::kind_parse(s),
         contents: String::from(s),
     }

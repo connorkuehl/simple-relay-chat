@@ -11,6 +11,7 @@ pub enum EventKind {
 
 pub struct Event {
     pub from: net::TcpStream,
+    pub addr: net::SocketAddr,
     pub kind: EventKind,
     pub contents: String,
 }

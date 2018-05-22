@@ -26,8 +26,12 @@ pub fn execute(mut event: Event, peers: &mut Vec<Client>) {
     };
 
     let response = format!("{} {}\n", retcode, reply);
-    event.from.write(response.as_bytes()).expect("write");
-    event.from.flush().expect("flush");
+    if let Err(e) = event.from.write(response.as_bytes()) {
+        eprintln!("execute write: {}", e);
+    }
+    if let Err(e) = event.from.flush() {
+        eprintln!("execute flush: {}", e);
+    }
 }
 
 fn on_identify(event: &mut Event, peers: &mut Vec<Client>) -> (usize, String) {
@@ -42,6 +46,7 @@ fn on_identify(event: &mut Event, peers: &mut Vec<Client>) -> (usize, String) {
 
     let client = Client {
         user: username.to_string(),
+        addr: event.from.peer_addr().expect("peer_addr on identify"),
         conn: event.from.try_clone().expect("try_clone on_identify"),
         rooms: Vec::new(),
     };
@@ -59,8 +64,7 @@ fn on_join(event: &mut Event, peers: &mut Vec<Client>) -> (usize, String) {
 
     let room = room.to_string();
 
-    let addr = event.from.peer_addr().expect("peer_addr");
-    if let Some(index) = peers.iter().position(|x| x.conn.peer_addr().expect("peer_addr").eq(&addr)) {
+    if let Some(index) = peers.iter().position(|p| p.addr.eq(&event.addr)) {
         peers[index].rooms.push(room);
     }
 
@@ -109,10 +113,9 @@ fn on_say(event: &mut Event, peers: &mut Vec<Client>) -> (usize, String) {
         _ => panic!("on_say received non-say event"),
     };
 
-    let addr = event.from.peer_addr().expect("peer_addr");
-    let sender = match peers.iter().position(|x| x.conn.peer_addr().expect("peer_addr").eq(&addr)) {
+    let sender = match peers.iter().position(|p| p.addr.eq(&event.addr)) {
         Some(index) => peers[index].user.clone(),
-        None => panic!("user"),
+        None => String::from("unidentified"),
     };
 
     let time = match std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH) {
@@ -138,8 +141,7 @@ fn on_quit(event: &mut Event, peers: &mut Vec<Client>) -> (usize, String) {
     // send message to subscribed channels saying they left
     // probably just call on_leave for each of them.
 
-    let addr = event.from.peer_addr().expect("peer_addr");
-    if let Some(index) = peers.iter().position(|x| x.conn.peer_addr().expect("peer_addr").eq(&addr)) {
+    if let Some(index) = peers.iter().position(|p| p.addr.eq(&event.addr)) {
         peers.remove(index);
     }
 
