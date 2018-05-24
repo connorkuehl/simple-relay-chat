@@ -6,27 +6,27 @@ use ::std::io::Write;
 use ::Client;
 use ::event::{Event, EventKind};
 
-const OK: usize = 0;
-const ROOM_DOESNT_EXIST: usize = 1;
-/*
-const USER_DOESNT_EXIST: usize = 2;
-*/
-const POORLY_FORMED_COMMAND: usize = 3;
-const USERNAME_UNAVAILABLE: usize = 4;
+#[derive(Clone, Copy)]
+enum ResponseCode {
+    OK = 0,
+    ROOM_DOESNT_EXIST = 1,
+    USER_DOESNT_EXIST = 2,
+    POORLY_FORMED_COMMAND = 3,
+    USERNAME_UNAVAILABLE = 4,
+}
 
 pub fn execute(mut event: Event, peers: &mut Vec<Client>) {
-    let (retcode, reply) = match event.kind {
+    let retcode = match event.kind {
         EventKind::Identify(_) => on_identify(&mut event, peers),
         EventKind::Join(_) => on_join(&mut event, peers),
         EventKind::Leave(_) => on_leave(&mut event, peers),
         EventKind::List(_) => on_list(&mut event, peers),
         EventKind::Say(_, _) => on_say(&mut event, peers),
         EventKind::Quit => on_quit(&mut event, peers),
-        EventKind::Error => (POORLY_FORMED_COMMAND, event.contents),
-        _ => (999, String::from("Unknown")),
+        EventKind::Error => ResponseCode::POORLY_FORMED_COMMAND,
     };
 
-    let response = format!("{} {}\n", retcode, reply);
+    let response = format!("{} {}\n", retcode as usize, event.contents);
     write_and_ignore(&mut event.from, &response)
 }
 
@@ -40,30 +40,42 @@ fn write_and_ignore(connection: &mut net::TcpStream, what: &str) {
     }
 }
 
-fn server_say(what: &str, room: &str, from: &str, peers: &mut Vec<Client>) {
-    let recipients = peers.into_iter()
-        .filter(|p| p.is_subscribed(room));
-
+fn create_message(what: &str, room: &str, from: &str) -> String {
     let time = match std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH) {
         Ok(t) => t.as_secs(),
         Err(_) => 0,
     };
 
-    let message = format!("{} {} {} {} {}\n", OK, from, time, room, what);
+    format!("{} {} {} {}\n", from, time, room, what)
+}
+
+fn server_say_to_room(what: &str, room: &str, from: &str, peers: &mut Vec<Client>) {
+    let recipients = peers.into_iter()
+        .filter(|p| p.is_subscribed(room));
+
+
+    let message = format!("{} {}", ResponseCode::OK as usize, create_message(what, room, from));
 
     for recipient in recipients {
         write_and_ignore(&mut recipient.conn, &message);
     }
 }
 
-fn on_identify(event: &mut Event, peers: &mut Vec<Client>) -> (usize, String) {
+fn server_say_to(err: ResponseCode, what: &str, to: &str, peers: &mut Vec<Client>) {
+    if let Some(to) = peers.iter().position(|p| p.user.eq(to)) {
+        let message = format!("{} {}", err as usize, create_message(what, "server", "server"));
+        write_and_ignore(&mut peers[to].conn, &message);
+    }
+}
+
+fn on_identify(event: &mut Event, peers: &mut Vec<Client>) -> ResponseCode {
     let username = match &event.kind {
         EventKind::Identify(user) => user,
         _ => panic!("on_identify received non-identify event"),
     };
 
     if peers.iter().any(|p| p.user.eq(username)) {
-        return (USERNAME_UNAVAILABLE, event.contents.clone());
+        return ResponseCode::USERNAME_UNAVAILABLE;
     }
 
     let client = Client {
@@ -75,10 +87,10 @@ fn on_identify(event: &mut Event, peers: &mut Vec<Client>) -> (usize, String) {
 
     peers.push(client);
 
-    (OK, event.contents.clone())
+    ResponseCode::OK
 }
 
-fn on_join(event: &mut Event, peers: &mut Vec<Client>) -> (usize, String) {
+fn on_join(event: &mut Event, peers: &mut Vec<Client>) -> ResponseCode {
     let room = match &event.kind {
         EventKind::Join(r) => r,
         _ => panic!("on_join received non-join event"),
@@ -87,13 +99,14 @@ fn on_join(event: &mut Event, peers: &mut Vec<Client>) -> (usize, String) {
     let room = room.to_string();
 
     if let Some(index) = peers.iter().position(|p| p.addr.eq(&event.addr)) {
-        peers[index].rooms.push(room);
+        peers[index].rooms.push(room.clone());
+        server_say_to_room(&format!("{} has joined.", peers[index].user), &room, "server", peers)
     }
 
-    (OK, event.contents.clone())
+    ResponseCode::OK
 }
 
-fn on_leave(event: &mut Event, peers: &mut Vec<Client>) -> (usize, String) {
+fn on_leave(event: &mut Event, peers: &mut Vec<Client>) -> ResponseCode {
     let room = match &event.kind {
         EventKind::Leave(l) => l,
         _ => panic!("on_leave received non-leave event"),
@@ -104,20 +117,20 @@ fn on_leave(event: &mut Event, peers: &mut Vec<Client>) -> (usize, String) {
     if let Some(index) = peers.iter().position(|p| p.addr.eq(&event.addr)) {
         if let Some(cindex) = peers[index].rooms.iter().position(|r| r.eq(&room)) {
             peers[index].rooms.remove(cindex);
-            // tell people they left
+            server_say_to_room(&format!("{} has left the room.", peers[index].user), &room, "server", peers);
         } 
     }
 
-    (OK, event.contents.clone())
+    ResponseCode::OK
 }
 
-fn on_list(event: &mut Event, peers: &mut Vec<Client>) -> (usize, String) {
+fn on_list(event: &mut Event, peers: &mut Vec<Client>) -> ResponseCode {
     let to_list = match &event.kind {
         EventKind::List(option) => option,
         _ => panic!("on_list received non-list event"),
     };
 
-    let mut retcode = OK;
+    let mut retcode = ResponseCode::OK;
 
     let reply = match to_list {
         Some(room) => {
@@ -128,8 +141,8 @@ fn on_list(event: &mut Event, peers: &mut Vec<Client>) -> (usize, String) {
             if clients.len() > 0 {
                 clients.join(" ")
             } else {
-                retcode = ROOM_DOESNT_EXIST;
-                event.contents.clone()
+                retcode = ResponseCode::ROOM_DOESNT_EXIST;
+                String::from("")
             }
         },
         None => {
@@ -151,10 +164,15 @@ fn on_list(event: &mut Event, peers: &mut Vec<Client>) -> (usize, String) {
         },
     };
 
-    (retcode, reply)
+    if let Some(index) = peers.into_iter().position(|p| p.addr.eq(&event.addr)) {
+        let user = peers[index].user.clone();
+        server_say_to(retcode, &reply, &user, peers);
+    }
+
+    retcode
 }
 
-fn on_say(event: &mut Event, peers: &mut Vec<Client>) -> (usize, String) {
+fn on_say(event: &mut Event, peers: &mut Vec<Client>) -> ResponseCode {
     let (room, message) = match &event.kind {
         EventKind::Say(r, m) => (r, m),
         _ => panic!("on_say received non-say event"),
@@ -165,22 +183,20 @@ fn on_say(event: &mut Event, peers: &mut Vec<Client>) -> (usize, String) {
         None => String::from("unidentified"),
     };
 
-    server_say(&message, &room, &sender, peers);
+    server_say_to_room(&message, &room, &sender, peers);
 
-    (OK, event.contents.clone())
+    ResponseCode::OK
 }
 
-fn on_quit(event: &mut Event, peers: &mut Vec<Client>) -> (usize, String) {
+fn on_quit(event: &mut Event, peers: &mut Vec<Client>) -> ResponseCode {
 
-    if let Some(index) = peers.iter().position(|p| p.addr.eq(&event.addr)) {
+    if let Some(index) = peers.into_iter().position(|p| p.addr.eq(&event.addr)) {
         peers.remove(index);
-        // send message to subscribed channels saying they left
-        // probably just call on_leave for each of them.
     }
 
     match event.from.shutdown(net::Shutdown::Both) {
         _ => (),
     }
 
-    (OK, event.contents.clone())
+    ResponseCode::OK
 }
