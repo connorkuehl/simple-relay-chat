@@ -27,11 +27,32 @@ pub fn execute(mut event: Event, peers: &mut Vec<Client>) {
     };
 
     let response = format!("{} {}\n", retcode, reply);
-    if let Err(e) = event.from.write(response.as_bytes()) {
-        eprintln!("execute write: {}", e);
+    write_and_ignore(&mut event.from, &response)
+}
+
+fn write_and_ignore(connection: &mut net::TcpStream, what: &str) {
+    match connection.write(what.as_bytes()) {
+        _ => (),
     }
-    if let Err(e) = event.from.flush() {
-        eprintln!("execute flush: {}", e);
+
+    match connection.flush() {
+        _ => (),
+    }
+}
+
+fn server_say(what: &str, room: &str, from: &str, peers: &mut Vec<Client>) {
+    let recipients = peers.into_iter()
+        .filter(|p| p.is_subscribed(room));
+
+    let time = match std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH) {
+        Ok(t) => t.as_secs(),
+        Err(_) => 0,
+    };
+
+    let message = format!("{} {} {} {} {}\n", OK, from, time, room, what);
+
+    for recipient in recipients {
+        write_and_ignore(&mut recipient.conn, &message);
     }
 }
 
@@ -144,35 +165,17 @@ fn on_say(event: &mut Event, peers: &mut Vec<Client>) -> (usize, String) {
         None => String::from("unidentified"),
     };
 
-    let time = match std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH) {
-        Ok(t) => t.as_secs(),
-        Err(_) => 0,
-    };
-
-    let final_msg = format!("{} {} {} {} {}\n", OK, sender, time, room, message);
-
-    let mut send_to = peers.into_iter()
-        .filter(|p| p.rooms.iter().any(|r| r.eq(room)))
-        .peekable();
-
-    if send_to.peek().is_none() {
-        return (ROOM_DOESNT_EXIST, event.contents.clone());
-    }
-
-    for client in send_to {
-        client.conn.write(final_msg.as_bytes()).expect("write");
-        client.conn.flush().expect("flush");
-    }
+    server_say(&message, &room, &sender, peers);
 
     (OK, event.contents.clone())
 }
 
 fn on_quit(event: &mut Event, peers: &mut Vec<Client>) -> (usize, String) {
-    // send message to subscribed channels saying they left
-    // probably just call on_leave for each of them.
 
     if let Some(index) = peers.iter().position(|p| p.addr.eq(&event.addr)) {
         peers.remove(index);
+        // send message to subscribed channels saying they left
+        // probably just call on_leave for each of them.
     }
 
     match event.from.shutdown(net::Shutdown::Both) {
