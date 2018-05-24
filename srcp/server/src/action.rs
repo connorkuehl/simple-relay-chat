@@ -18,6 +18,7 @@ pub fn execute(mut event: Event, peers: &mut Vec<Client>) {
     let (retcode, reply) = match event.kind {
         EventKind::Identify(_) => on_identify(&mut event, peers),
         EventKind::Join(_) => on_join(&mut event, peers),
+        EventKind::Leave(_) => on_leave(&mut event, peers),
         EventKind::List(_) => on_list(&mut event, peers),
         EventKind::Say(_, _) => on_say(&mut event, peers),
         EventKind::Quit => on_quit(&mut event, peers),
@@ -66,6 +67,24 @@ fn on_join(event: &mut Event, peers: &mut Vec<Client>) -> (usize, String) {
 
     if let Some(index) = peers.iter().position(|p| p.addr.eq(&event.addr)) {
         peers[index].rooms.push(room);
+    }
+
+    (OK, event.contents.clone())
+}
+
+fn on_leave(event: &mut Event, peers: &mut Vec<Client>) -> (usize, String) {
+    let room = match &event.kind {
+        EventKind::Leave(l) => l,
+        _ => panic!("on_leave received non-leave event"),
+    };
+
+    let room = room.to_string();
+
+    if let Some(index) = peers.iter().position(|p| p.addr.eq(&event.addr)) {
+        if let Some(cindex) = peers[index].rooms.iter().position(|r| r.eq(&room)) {
+            peers[index].rooms.remove(cindex);
+            // tell people they left
+        } 
     }
 
     (OK, event.contents.clone())

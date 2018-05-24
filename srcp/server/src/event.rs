@@ -4,6 +4,7 @@ pub enum EventKind {
     Identify(String),
     List(Option<String>),
     Join(String),
+    Leave(String),
     Say(String, String),
     Quit,
     Error,
@@ -29,6 +30,7 @@ pub fn kind_parse(s: &str) -> EventKind {
     match command {
         "IDENTIFY" => identify(args),
         "JOIN" => join(args),
+        "LEAVE" => leave(args),
         "LIST" => list(args),
         "SAY" => say(args),
         "QUIT" => quit(),
@@ -42,6 +44,10 @@ fn identify(args: Vec<&str>) -> EventKind {
 
 fn join(args: Vec<&str>) -> EventKind {
     EventKind::Join(String::from(args[0]))
+}
+
+fn leave(args: Vec<&str>) -> EventKind {
+    EventKind::Leave(String::from(args[0]))
 }
 
 fn list(args: Vec<&str>) -> EventKind {
