@@ -22,6 +22,12 @@ pub struct Client {
     pub rooms: Vec<String>,
 }
 
+impl Client {
+    pub fn is_subscribed(&self, room: &str) -> bool {
+        self.rooms.iter().any(|r| r.eq(room))
+    }
+}
+
 fn parse_message(s: &str, from: &net::TcpStream) -> Event {
     Event {
         from: from.try_clone().expect("parse_message: try_clone"),
