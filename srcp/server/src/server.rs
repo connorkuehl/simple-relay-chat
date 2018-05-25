@@ -77,8 +77,8 @@ impl Server {
                 let recipients = self.clients.iter_mut().filter(|c| c.rooms.contains(&room));
 
                 for recipient in recipients {
-                    recipient.connection.write(format!("{} {} {}\n", name, room, message).as_bytes());
-                    recipient.connection.flush();
+                    ignore_result(recipient.connection.write(format!("{} {} {}\n", name, room, message).as_bytes()));
+                    ignore_result(recipient.connection.flush());
                 }
 
                 event.raw
@@ -98,7 +98,13 @@ impl Server {
             _ => String::from("unknown"),
         };
 
-        event.from.write(format!("{}\n", reply).as_bytes());
-        event.from.flush();
+        ignore_result(event.from.write(format!("{}\n", reply).as_bytes()));
+        ignore_result(event.from.flush());
+    }
+}
+
+fn ignore_result<R, E>(r: Result<R, E>) {
+    match r {
+        _ => (),
     }
 }
