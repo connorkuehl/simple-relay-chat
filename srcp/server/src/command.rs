@@ -12,8 +12,8 @@ pub enum Command {
 }
 
 impl Command {
-    pub fn new(args: &str) -> Command {
-        let args: Vec<&str> = args.split_whitespace().collect();
+    pub fn new(message: &str) -> Command {
+        let args: Vec<&str> = message.split_whitespace().collect();
 
         match args[0] {
             "IDENTIFY" => Command::Identify(args[1].to_string()),
