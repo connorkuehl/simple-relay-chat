@@ -21,7 +21,7 @@ impl Server {
         Server { clients: Vec::new() }
     }
 
-    pub fn exec(&mut self, mut event: Event) {
+    pub fn exec(&mut self, event: Event) {
         let sender_index = self.clients.iter()
             .position(|c| c.connection.peer_addr().expect("peer_addr").eq(&event.from.peer_addr().expect("peer_addr")));
 
