@@ -1,12 +1,20 @@
-#[derive(Debug)]
 pub enum Command {
+    // IDENTIFY nickname
     Identify(String),
+    // Option 1: LIST
+    // Option 2: LIST room_name
     List(Option<String>),
+    // JOIN room_name
     Join(String),
+    // SAY room_name message goes here!
     Say(String, String),
+    // WHISPER username message goes here!
     Whisper(String, String),
+    // SHOUT message goes here!
     Shout(String),
+    // LEAVE room_name
     Leave(String),
+    // QUIT
     Quit,
     ParseError,
 }

@@ -13,16 +13,19 @@ use server::Server;
 mod command;
 mod server;
 
+// Max number of supported clients for the server.
 const NCLIENT: usize = 32;
 const MSGSIZE: usize = 1024;
 
-#[derive(Debug)]
 pub struct Event {
     from: net::TcpStream,
     command: Command,
     raw: String,
 }
 
+// Entry point for client threads. Listens for message from
+// the client, parses it, and sends to the event processing
+// thread for relaying the message.
 fn handle_client(mut stream: net::TcpStream, cmd_queue: sync::mpsc::Sender<Event>) {
     let remote = stream.peer_addr().expect("peer_addr");
 
@@ -64,6 +67,7 @@ fn main() {
 
     let (sender, command_queue) = std::sync::mpsc::channel();
 
+    // Event Processing Thread: executes parsed commands
     let events = thread::spawn(move || {
         println!("Event thread online.");
         let mut server = Server::new();
