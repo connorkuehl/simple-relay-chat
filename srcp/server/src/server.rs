@@ -7,15 +7,15 @@ use ::Event;
 use ::Command;
 
 macro_rules! assert_identified {
-    ( $x: expr, $y: expr ) => {
+    ( $x: expr, $y: ident ) => {
         {
             let temp_index = $x.iter()
-                .position(|c| c.connection.peer_addr().expect("peer_addr").eq(&$y.peer_addr().expect("peer_addr")));
+                .position(|c| c.connection.peer_addr().expect("peer_addr").eq(&$y.from.peer_addr().expect("peer_addr")));
 
             if temp_index.is_none() {
-                ignore_result($y.write(&format!("9 {}\n", "UNIDENTIFIED").as_bytes()));
-                ignore_result($y.flush());
-                ignore_result($y.shutdown(net::Shutdown::Both));
+                ignore_result($y.from.write(&format!("9 {}\n", "UNIDENTIFIED").as_bytes()));
+                ignore_result($y.from.flush());
+                ignore_result($y.from.shutdown(net::Shutdown::Read));
                 return;
             } else {
                 temp_index.unwrap()
@@ -69,7 +69,7 @@ impl Server {
                 event.raw
             },
             _ => { 
-                let index = assert_identified!(self.clients, event.from);
+                let index = assert_identified!(self.clients, event);
                 match event.command {
                     Command::Join(room) => {
                         self.clients[index].rooms.insert(room.clone());
