@@ -1,4 +1,5 @@
 use ::net;
+use ::std::time;
 use ::std::io::Write;
 use ::std::collections::HashSet;
 
@@ -40,7 +41,16 @@ impl Server {
             },
             Command::Join(room) => {
                 let index = sender_index.unwrap();
-                self.clients[index].rooms.insert(room);
+                self.clients[index].rooms.insert(room.clone());
+                let mut others: Vec<net::TcpStream> = self.clients.iter()
+                                                    .filter(|c| c.rooms.iter().any(|r| r.eq(&room)))
+                                                    .map(|c| c.connection.try_clone().expect("try_clone"))
+                                                    .collect();
+
+                let joinmsg = Server::create_message(0, &format!("{} has joined.", self.clients[index].name), "server", &room);
+                self.say(others.as_mut_slice(), &joinmsg);
+
+
 
                 event.raw
             },
@@ -74,22 +84,47 @@ impl Server {
             Command::Say(room, message) => {
                 let index = sender_index.unwrap();
                 let name = self.clients[index].name.clone();
-                let recipients = self.clients.iter_mut().filter(|c| c.rooms.contains(&room));
+                let mut recipients: Vec<net::TcpStream> = self.clients
+                    .iter()
+                    .filter(|c| c.rooms.contains(&room))
+                    .map(|c| c.connection.try_clone().expect("try_clone"))
+                    .collect();
 
-                for recipient in recipients {
-                    ignore_result(recipient.connection.write(format!("{} {} {}\n", name, room, message).as_bytes()));
-                    ignore_result(recipient.connection.flush());
-                }
+                let message = Server::create_message(0, &message, &name, &room);
+                self.say(recipients.as_mut_slice(), &message);
 
                 event.raw
             },
             Command::Leave(room) => {
                 let cindex = sender_index.unwrap();
                 self.clients[cindex].rooms.remove(&room);
+
+                let mut others: Vec<net::TcpStream> = self.clients.iter()
+                    .filter(|c| c.rooms.contains(&room))
+                    .map(|c| c.connection.try_clone().expect("try_clone"))
+                    .collect();
+
+                let message = format!("{} has left the room.", self.clients[cindex].name);
+                let message = Server::create_message(0, &message, "server", &room);
+                self.say(others.as_mut_slice(), &message);
+
                 event.raw
             },
             Command::Quit => {
                 if let Some(index) = self.clients.iter().position(|c| c.connection.peer_addr().unwrap().eq(&event.from.peer_addr().unwrap())) {
+                    let cindex = sender_index.unwrap();
+
+                    for subscribed in self.clients[index].rooms.clone() {
+                        let mut others: Vec<net::TcpStream> = self.clients.iter()
+                            .filter(|c| c.rooms.contains(&subscribed))
+                            .map(|c| c.connection.try_clone().expect("try_clone"))
+                            .collect();
+
+                        let message = format!("{} has left the room.", self.clients[cindex].name);
+                        let message = Server::create_message(0, &message, "server", &subscribed);
+                        self.say(others.as_mut_slice(), &message);
+                    }
+
                     self.clients.remove(index);
                 }
 
@@ -98,8 +133,24 @@ impl Server {
             _ => String::from("unknown"),
         };
 
-        ignore_result(event.from.write(format!("{}\n", reply).as_bytes()));
-        ignore_result(event.from.flush());
+        let reply = Server::create_message(0, &reply, "server", "server");
+        self.say(&mut [event.from], &reply);
+    }
+
+    fn say(&mut self, to: &mut[net::TcpStream], what: &str) {
+        for client in to {
+            ignore_result(client.write(format!("{}", what).as_bytes()));
+            ignore_result(client.flush());
+        }
+    }
+
+    fn create_message(code: usize, body: &str, from: &str, to_room: &str) -> String {
+        let time = match time::SystemTime::now().duration_since(time::UNIX_EPOCH) {
+            Ok(t) => t.as_secs(),
+            _ => 0,
+        };
+
+        format!("{} {} {} {} {}\n", code, from, time, to_room, body)
     }
 }
 
