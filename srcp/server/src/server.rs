@@ -100,14 +100,42 @@ impl Server {
                 event.raw
             },
             Command::Leave(room) => {
+                let index = sender_index.unwrap();
+                let user = self.clients[index].name.clone();
+
+                if self.clients[index].rooms.contains(&room) {
+                    if let Some(subscribed) = self.rooms.get_mut(&room) {
+                        let message = Server::create_message(0, &format!("{} has left.", user), "server", &room);
+                        Server::say(subscribed.as_mut_slice(), &message);
+                    }
+
+                    self.clients[index].rooms.remove(&room);
+                }
+
                 event.raw
             },
             Command::Quit => {
-                if let Some(index) = self.clients.iter().position(|c| c.connection.peer_addr().unwrap().eq(&event.from.peer_addr().unwrap())) {
-                    let cindex = sender_index.unwrap();
+                let index = sender_index.unwrap();
+                let client = self.clients[index].clone();
+                let user = client.name.clone();
 
-                    self.clients.remove(index);
+                for room in client.rooms {
+                    if let Some(subscribed) = self.rooms.get_mut(&room) {
+                        // channel exists, notify clients that user is leaving
+                        let message = Server::create_message(0, &format!("{} has left.", &user), "server", &room);
+                        Server::say(subscribed.as_mut_slice(), &message);
+
+                        // remove this user from the room's list of subscribed clients
+                        if let Some(pos) = subscribed.iter().position(|c| c.name.eq(&user)) {
+                            subscribed.remove(pos);
+                        }
+                    }
                 }
+
+                ignore_result(client.connection.shutdown(net::Shutdown::Both));
+
+                // remove from list of clients
+                self.clients.remove(index);
 
                 event.raw
             },
