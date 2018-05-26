@@ -1,7 +1,7 @@
 use ::net;
 use ::std::time;
 use ::std::io::Write;
-use ::std::collections::HashSet;
+use ::std::collections::{HashSet, HashMap};
 
 use ::Event;
 use ::Command;
@@ -12,13 +12,27 @@ pub struct Client {
     pub rooms: HashSet<String>
 }
 
+impl Clone for Client {
+    fn clone(&self) -> Self {
+        Client {
+            name: self.name.clone(),
+            connection: self.connection.try_clone().expect("try_clone"),
+            rooms: self.rooms.clone(),
+        }
+    }
+}
+
 pub struct Server {
     pub clients: Vec<Client>,
+    pub rooms: HashMap<String, Vec<Client>>,
 }
 
 impl Server {
     pub fn new() -> Server {
-        Server { clients: Vec::new() }
+        Server { 
+            clients: Vec::new(),
+            rooms: HashMap::new(),
+        }
     }
 
     pub fn exec(&mut self, event: Event) {
@@ -42,88 +56,55 @@ impl Server {
             Command::Join(room) => {
                 let index = sender_index.unwrap();
                 self.clients[index].rooms.insert(room.clone());
-                let mut others: Vec<net::TcpStream> = self.clients.iter()
-                                                    .filter(|c| c.rooms.iter().any(|r| r.eq(&room)))
-                                                    .map(|c| c.connection.try_clone().expect("try_clone"))
-                                                    .collect();
 
-                let joinmsg = Server::create_message(0, &format!("{} has joined.", self.clients[index].name), "server", &room);
-                self.say(others.as_mut_slice(), &joinmsg);
+                let list = self.rooms.entry(room.clone()).or_insert(vec![]);
+                list.push(self.clients[index].clone());
 
-
+                let joinmsg = Server::create_message(
+                    0, 
+                    &format!("{} has joined.", self.clients[index].name), 
+                    "server", 
+                    &room
+                );
+                Server::say(list.as_mut_slice(), &joinmsg);
 
                 event.raw
             },
             Command::List(room) => {
+                // user provided a room name
                 if let Some(room) = room {
-                    let subscribed_clients: Vec<String> = self.clients.iter()
-                                                .filter(|c| c.rooms.iter().any(|r| r.eq(&room)))
-                                                .map(|c| c.name.clone())
-                                                .collect();
-                    let subscribed_as_str = subscribed_clients.join(" ");
-
-                    subscribed_as_str
+                    match self.rooms.get(&room) {
+                        // room exists
+                        Some(rm) => {
+                            let usernames: Vec<String> = rm.iter().map(|c| c.name.clone()).collect();
+                            usernames.join(" ")
+                        },
+                        None => {
+                            // Error
+                            String::from("room doesn't exist")
+                        },
+                    }
                 } else {
-                    let size  = self.clients.iter().map(|c| &c.rooms).fold(0, |acc, v| acc + v.len() + 1);
-                    let mut rooms = HashSet::new();
-                    let mut rooms_as_str = String::with_capacity(size);
-
-                    self.clients.iter().map(|c| &c.rooms).for_each(|v| {
-                        for room_name in v {
-                            let name = room_name.clone();
-                            if rooms.insert(name) {
-                                rooms_as_str.push_str(&room_name);
-                                rooms_as_str.push(' ');
-                            }
-                        }
-                    });
-
-                    rooms_as_str
+                    let rooms: Vec<String> = self.rooms.keys().map(|k| k.clone()).collect();
+                    rooms.join(" ")
                 }
             },
             Command::Say(room, message) => {
                 let index = sender_index.unwrap();
                 let name = self.clients[index].name.clone();
-                let mut recipients: Vec<net::TcpStream> = self.clients
-                    .iter()
-                    .filter(|c| c.rooms.contains(&room))
-                    .map(|c| c.connection.try_clone().expect("try_clone"))
-                    .collect();
-
-                let message = Server::create_message(0, &message, &name, &room);
-                self.say(recipients.as_mut_slice(), &message);
+                if let Some(recipients) = self.rooms.get_mut(&room) {
+                    let message = Server::create_message(0, &message, &name, &room);
+                    Server::say(recipients.as_mut_slice(), &message);
+                }
 
                 event.raw
             },
             Command::Leave(room) => {
-                let cindex = sender_index.unwrap();
-                self.clients[cindex].rooms.remove(&room);
-
-                let mut others: Vec<net::TcpStream> = self.clients.iter()
-                    .filter(|c| c.rooms.contains(&room))
-                    .map(|c| c.connection.try_clone().expect("try_clone"))
-                    .collect();
-
-                let message = format!("{} has left the room.", self.clients[cindex].name);
-                let message = Server::create_message(0, &message, "server", &room);
-                self.say(others.as_mut_slice(), &message);
-
                 event.raw
             },
             Command::Quit => {
                 if let Some(index) = self.clients.iter().position(|c| c.connection.peer_addr().unwrap().eq(&event.from.peer_addr().unwrap())) {
                     let cindex = sender_index.unwrap();
-
-                    for subscribed in self.clients[index].rooms.clone() {
-                        let mut others: Vec<net::TcpStream> = self.clients.iter()
-                            .filter(|c| c.rooms.contains(&subscribed))
-                            .map(|c| c.connection.try_clone().expect("try_clone"))
-                            .collect();
-
-                        let message = format!("{} has left the room.", self.clients[cindex].name);
-                        let message = Server::create_message(0, &message, "server", &subscribed);
-                        self.say(others.as_mut_slice(), &message);
-                    }
 
                     self.clients.remove(index);
                 }
@@ -134,13 +115,21 @@ impl Server {
         };
 
         let reply = Server::create_message(0, &reply, "server", "server");
-        self.say(&mut [event.from], &reply);
+
+        Server::say(
+            &mut [Client { 
+                name: String::from("repl"), 
+                connection: event.from.try_clone().expect("try_clone"), 
+                rooms: HashSet::new()}
+                ], 
+                &reply
+        );
     }
 
-    fn say(&mut self, to: &mut[net::TcpStream], what: &str) {
+    fn say(to: &mut[Client], what: &str) {
         for client in to {
-            ignore_result(client.write(format!("{}", what).as_bytes()));
-            ignore_result(client.flush());
+            ignore_result(client.connection.write(format!("{}", what).as_bytes()));
+            ignore_result(client.connection.flush());
         }
     }
 
