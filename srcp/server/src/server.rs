@@ -143,10 +143,21 @@ impl Server {
                                 // Announce that the user is leaving.
                                 let message = Server::create_message(0, &format!("{} has left.", user), "server", &room);
                                 Server::say(subscribed.as_mut_slice(), &message);
-                            }
 
+                                if let Some(cindex) = subscribed.iter().position(|c| c.name.eq(&user)) {
+                                    subscribed.remove(cindex);
+                                }
+                            }
+                            
                             self.clients[index].rooms.remove(&room);
-                            // TODO remove room if last occupant leaves.
+                            let empties: Vec<_> = self.rooms
+                                .iter()
+                                .filter(|&(_, ref v)| v.len() == 0)
+                                .map(|(k, _)| k.clone())
+                                .collect();
+                            for empty in empties {
+                                self.rooms.remove(&empty);
+                            }
                         }
 
                         event.raw
