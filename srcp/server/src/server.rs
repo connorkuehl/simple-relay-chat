@@ -130,6 +130,19 @@ impl Server {
 
                         event.raw
                     },
+                    // Sends a private message to a connected client.
+                    Command::Whisper(to, message) => {
+                        match self.clients.iter().position(|c| c.name.eq(&to)) {
+                            Some(index) => {
+                                let recipient = self.clients[index].clone();
+                                let message = Server::create_message(0, &message, &sender_name, &to);
+                                Server::say(&mut[recipient], &message);
+                            },
+                            None => (),
+                        }
+                        
+                        event.raw
+                    },
                     // Broadcasts a message to all rooms.
                     Command::Shout(message) => {
                         let rooms: Vec<_> = self.rooms.iter().map(|(r, _)| r.clone()).collect();
