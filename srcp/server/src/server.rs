@@ -136,29 +136,7 @@ impl Server {
                     Command::Leave(room) => {
                         let user = self.clients[index].name.clone();
 
-                        // If the client is subscribed to the room
-                        if self.clients[index].rooms.contains(&room) {
-                            // If the room actually exists
-                            if let Some(subscribed) = self.rooms.get_mut(&room) {
-                                // Announce that the user is leaving.
-                                let message = Server::create_message(0, &format!("{} has left.", user), "server", &room);
-                                Server::say(subscribed.as_mut_slice(), &message);
-
-                                if let Some(cindex) = subscribed.iter().position(|c| c.name.eq(&user)) {
-                                    subscribed.remove(cindex);
-                                }
-                            }
-                            
-                            self.clients[index].rooms.remove(&room);
-                            let empties: Vec<_> = self.rooms
-                                .iter()
-                                .filter(|&(_, ref v)| v.len() == 0)
-                                .map(|(k, _)| k.clone())
-                                .collect();
-                            for empty in empties {
-                                self.rooms.remove(&empty);
-                            }
-                        }
+                        self.on_leave(&room, &user, index);
 
                         event.raw
                     },
@@ -168,18 +146,10 @@ impl Server {
                         let client = self.clients[index].clone();
                         let user = client.name.clone();
 
-                        // Gracefully unsubscribe user from all connected rooms
-                        for room in client.rooms {
-                            if let Some(subscribed) = self.rooms.get_mut(&room) {
-                                // room exists, notify clients that user is leaving
-                                let message = Server::create_message(0, &format!("{} has left.", &user), "server", &room);
-                                Server::say(subscribed.as_mut_slice(), &message);
-
-                                // remove this user from the room's list of subscribed clients
-                                if let Some(pos) = subscribed.iter().position(|c| c.name.eq(&user)) {
-                                    subscribed.remove(pos);
-                                }
-                            }
+                        // unsubscribe them from each room they belong to.
+                        let subscribed: Vec<_> = client.rooms.iter().map(|r| r.clone()).collect();
+                        for room in subscribed {
+                            self.on_leave(&room, &user, index);
                         }
 
                         ignore_result(client.connection.shutdown(net::Shutdown::Both));
@@ -205,6 +175,34 @@ impl Server {
                 ], 
                 &reply
         );
+    }
+
+    // Gracefully unsubscribes user from the room.
+    fn on_leave(&mut self, room: &str, user: &str, index: usize) {
+        // If the client is subscribed to the room
+        if self.clients[index].rooms.contains(room) {
+            // If the room actually exists
+            if let Some(subscribed) = self.rooms.get_mut(&room.to_string()) {
+                // Announce that the user is leaving.
+                let message = Server::create_message(0, &format!("{} has left.", user), "server", room);
+                Server::say(subscribed.as_mut_slice(), &message);
+
+                if let Some(cindex) = subscribed.iter().position(|c| c.name.eq(&user)) {
+                    subscribed.remove(cindex);
+                }
+            }
+
+            // Clear out the empty rooms.
+            self.clients[index].rooms.remove(room);
+            let empties: Vec<_> = self.rooms
+                .iter()
+                .filter(|&(_, ref v)| v.len() == 0)
+                .map(|(k, _)| k.clone())
+                .collect();
+            for empty in empties {
+                self.rooms.remove(&empty);
+            }
+        }
     }
 
     // Sends a message to specified clients.
