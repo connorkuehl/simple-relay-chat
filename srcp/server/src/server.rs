@@ -81,6 +81,8 @@ impl Server {
                 // This index refers to the SENDING CLIENT's position index in the
                 // `clients` Vec
                 let index = assert_identified!(self.clients, event);
+                let sender_name = self.clients[index].name.clone();
+                
                 match event.command {
                     // Joins a room or creates one if it doesn't yet exist.
                     Command::Join(room) => {
@@ -124,19 +126,23 @@ impl Server {
                     },
                     // Sends a message to a room.
                     Command::Say(room, message) => {
-                        let name = self.clients[index].name.clone();
-                        if let Some(recipients) = self.rooms.get_mut(&room) {
-                            let message = Server::create_message(0, &message, &name, &room);
-                            Server::say(recipients.as_mut_slice(), &message);
+                        self.on_say(&room, &sender_name, &message);
+
+                        event.raw
+                    },
+                    // Broadcasts a message to all rooms.
+                    Command::Shout(message) => {
+                        let rooms: Vec<_> = self.rooms.iter().map(|(r, _)| r.clone()).collect();
+
+                        for room in rooms {
+                            self.on_say(&room, &sender_name, &message);
                         }
 
                         event.raw
                     },
                     // Leaves a room.
                     Command::Leave(room) => {
-                        let user = self.clients[index].name.clone();
-
-                        self.on_leave(&room, &user, index);
+                        self.on_leave(&room, &sender_name, index);
 
                         event.raw
                     },
@@ -144,12 +150,11 @@ impl Server {
                     // rooms, too.
                     Command::Quit => {
                         let client = self.clients[index].clone();
-                        let user = client.name.clone();
 
                         // unsubscribe them from each room they belong to.
                         let subscribed: Vec<_> = client.rooms.iter().map(|r| r.clone()).collect();
                         for room in subscribed {
-                            self.on_leave(&room, &user, index);
+                            self.on_leave(&room, &sender_name, index);
                         }
 
                         ignore_result(client.connection.shutdown(net::Shutdown::Both));
@@ -175,6 +180,13 @@ impl Server {
                 ], 
                 &reply
         );
+    }
+
+    fn on_say(&mut self, room: &str, user: &str, message: &str) {
+        if let Some(recipients) = self.rooms.get_mut(room) {
+            let message = Server::create_message(0, message, user, room);
+            Server::say(recipients.as_mut_slice(), &message);
+        }
     }
 
     // Gracefully unsubscribes user from the room.
