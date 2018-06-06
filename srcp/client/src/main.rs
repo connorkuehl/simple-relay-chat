@@ -1,6 +1,7 @@
 extern crate ncurses;
 
 use std::net;
+use std::collections::VecDeque;
 use std::io::{Read, Write};
 
 use ncurses::*;
@@ -84,12 +85,19 @@ fn main() {
     let chat_window = mkwin(scr_height - INPUT_WINDOW_HEIGHT as i32, scr_width - ROOM_WINDOW_WIDTH as i32, 0, ROOM_WINDOW_WIDTH as i32);
 
     let input_window = mkwin(INPUT_WINDOW_HEIGHT as i32, scr_width, scr_height - INPUT_WINDOW_HEIGHT as i32, 0);
+
+    let mut chat_x = 0;
+    let mut chat_y = 0;
+
+    getmaxyx(chat_window, &mut chat_y, &mut chat_x);
+    
     let mut input_row = scr_height - INPUT_WINDOW_HEIGHT as i32 - 1;
     let mut input_col = 0;
     keypad(input_window, true);
 
+    let mut messages = VecDeque::new();
     halfdelay(1);
-    stream.set_read_timeout(Some(std::time::Duration::from_millis(100)))
+    stream.set_read_timeout(Some(std::time::Duration::from_millis(50)))
         .expect("set_read_timeout");
 
     let mut input = String::new();
@@ -99,12 +107,27 @@ fn main() {
             Ok(0) => break,
             Ok(bytes_read) => {
                 let unparsed = std::str::from_utf8(&buf).expect("from_utf8");
-                let trimmed = unparsed[0..bytes_read].trim().to_string();
+                let trimmed = unparsed[0..bytes_read].trim();
 
-                let to_print = format!("{}\n", trimmed);
+                let incoming: Vec<_> = trimmed.split("\n").collect();
+                for msg in incoming {
+                    if messages.len() as i32 >= scr_height - INPUT_WINDOW_HEIGHT as i32 - 1 as i32 {
+                        messages.pop_front();
+                    }
+                    messages.push_back(String::from(msg));
+                }
 
-                wprintw(chat_window, &to_print);
-                wrefresh(chat_window);
+                wclear(chat_window);
+                box_(chat_window, 0, 0);
+                for i in 0..messages.len() {
+                    mvwprintw(chat_window,
+                              chat_y - INPUT_WINDOW_HEIGHT as i32 - i as i32 + 1 as i32,
+                              1,
+                              &messages[messages.len() - 1 - i]
+                    );
+
+                    wrefresh(chat_window);
+                }
             },
             Err(e) => match e.kind() {
                 std::io::ErrorKind::WouldBlock => (),
@@ -123,7 +146,7 @@ fn main() {
 
                         wclear(input_window);
                         box_(input_window, 0, 0);
-                        wmove(input_window, 1, 0);
+                        wmove(input_window, 1, 1);
                         wrefresh(input_window);
                     },
                     _ => input.push(ch),
