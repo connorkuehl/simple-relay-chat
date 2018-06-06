@@ -90,22 +90,30 @@ fn main() {
     let mut input_col = 0;
     keypad(input_window, true);
 
-    let ncurse = Arc::new(Mutex::new(()));
+    halfdelay(1);
+    stream.set_read_timeout(Some(std::time::Duration::from_millis(100)));
+    loop {
+        let mut buf = [0; 1024];
+        match stream.read(&mut buf) {
+            Ok(0) => break,
+            Ok(bytes_read) => {
+                let unparsed = std::str::from_utf8(&buf).expect("from_utf8");
+                let trimmed = unparsed[0..bytes_read].trim().to_string();
+                wprintw(chat_window, &trimmed);
+            },
+            Err(e) => match e {
+                _ => (),
+            },
+        }
 
-    let lk = ncurse.clone();
-    let ui = std::thread::spawn(move || {
-        
-    });
+        let mut input = String::new();
+        getstr(&mut input);
 
-    let lk = ncurse.clone();
-    let message = std::thread::spawn(move || {
-        
-    });
-
-    ui.join().expect("ui thread panic");
-    message.join().expect("message thread panic");
-
-    getch();
+        if input.len() > 0 {
+            stream.write(input.as_bytes()).expect("write");
+            stream.flush().expect("flush");
+        }
+    }
 
     delwin(room_window);
     delwin(chat_window);
