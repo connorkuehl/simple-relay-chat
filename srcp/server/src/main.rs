@@ -39,7 +39,13 @@ fn handle_client(mut stream: net::TcpStream, cmd_queue: sync::mpsc::Sender<Event
                 break;
             },
             Ok(bytes_read) => {
-                let message = std::str::from_utf8(&buf).expect("from utf8");
+                let message = std::str::from_utf8(&buf);
+
+                if message.is_err() {
+                    continue;
+                }
+
+                let message = message.unwrap();
 
                 let event = Event {
                     from: stream.try_clone().expect("try_clone on client thread"),
