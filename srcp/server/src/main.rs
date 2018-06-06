@@ -63,6 +63,16 @@ fn handle_client(mut stream: net::TcpStream, cmd_queue: sync::mpsc::Sender<Event
         }
     }
 
+    let quit = Event {
+        from: stream.try_clone().expect("try_clone on client quit"),
+        command: Command::Quit,
+        raw: "QUIT".to_string(),
+    };
+
+    if let Err(e) = cmd_queue.send(quit) {
+        eprintln!("cannot send client quit to event thread: {}", e);
+    }
+
     match stream.shutdown(net::Shutdown::Both) {
         _ => println!("Disconnected from {}.", remote),
     }
