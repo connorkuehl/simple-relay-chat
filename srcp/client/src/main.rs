@@ -1,8 +1,6 @@
 extern crate ncurses;
 
 use std::net;
-use std::sync::{Arc, Mutex};
-
 use std::io::{Read, Write};
 
 use ncurses::*;
@@ -91,7 +89,10 @@ fn main() {
     keypad(input_window, true);
 
     halfdelay(1);
-    stream.set_read_timeout(Some(std::time::Duration::from_millis(100)));
+    stream.set_read_timeout(Some(std::time::Duration::from_millis(100)))
+        .expect("set_read_timeout");
+
+    let mut input = String::new();
     loop {
         let mut buf = [0; 1024];
         match stream.read(&mut buf) {
@@ -99,19 +100,35 @@ fn main() {
             Ok(bytes_read) => {
                 let unparsed = std::str::from_utf8(&buf).expect("from_utf8");
                 let trimmed = unparsed[0..bytes_read].trim().to_string();
-                wprintw(chat_window, &trimmed);
+
+                let to_print = format!("{}\n", trimmed);
+
+                wprintw(chat_window, &to_print);
+                wrefresh(chat_window);
             },
-            Err(e) => match e {
-                _ => (),
+            Err(e) => match e.kind() {
+                std::io::ErrorKind::WouldBlock => (),
+                _ => break,
             },
         }
 
-        let mut input = String::new();
-        getstr(&mut input);
+        let ch = wgetch(input_window);
+        if ch != ERR && ch >= 0 {
+            if let Some(ch) = std::char::from_u32(ch as u32) {
+                match ch {
+                    '\n' => {
+                        stream.write(input.as_bytes()).expect("write");
+                        stream.flush().expect("flush");
+                        input = String::new();
 
-        if input.len() > 0 {
-            stream.write(input.as_bytes()).expect("write");
-            stream.flush().expect("flush");
+                        wclear(input_window);
+                        box_(input_window, 0, 0);
+                        wmove(input_window, 1, 0);
+                        wrefresh(input_window);
+                    },
+                    _ => input.push(ch),
+                }
+            }
         }
     }
 
