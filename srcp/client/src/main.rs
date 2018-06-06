@@ -1,5 +1,8 @@
 extern crate ncurses;
 
+use std::net;
+use std::sync::{Arc, Mutex};
+
 use ncurses::*;
 
 const INPUT_WINDOW_HEIGHT: usize = 3;
@@ -13,6 +16,14 @@ fn mkwin(lines: i32, cols: i32, row: i32, col: i32) -> ncurses::WINDOW {
     w
 }
 
+fn connect() -> std::io::Result<net::TcpStream> {
+    printw("Connect to: ");
+    let mut input = String::new();
+    getstr(&mut input);
+
+    net::TcpStream::connect(input)
+}
+
 fn main() {
     initscr();
     
@@ -20,7 +31,16 @@ fn main() {
     let mut scr_height = 0;
     getmaxyx(stdscr(), &mut scr_height, &mut scr_width);
 
-    refresh();
+    let mut stream = match connect() {
+        Ok(s) => s,
+        Err(e) => {
+            let errormsg = format!("failed to connect: {}\nPress any key to quit.\n", e);
+            mvprintw(1, 0, &errormsg);
+            getch();
+            endwin();
+            std::process::exit(1);
+        },
+    };
 
     let room_window = mkwin(scr_height - INPUT_WINDOW_HEIGHT as i32, ROOM_WINDOW_WIDTH as i32, 0, 0);
 
@@ -31,19 +51,7 @@ fn main() {
     let mut input_col = 0;
     keypad(input_window, true);
 
-    loop {
-        wmove(input_window, 1, 1);
-        wrefresh(input_window);
-
-        let mut input = String::new();
-        wgetstr(input_window, &mut input);
-        wclear(input_window);
-        box_(input_window, 0, 0);
-        wrefresh(input_window);
-        
-        mvwaddstr(chat_window, 1, 1, &input);
-        wrefresh(chat_window);
-    }
+    
 
     getch();
 
