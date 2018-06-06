@@ -3,6 +3,8 @@ extern crate ncurses;
 use std::net;
 use std::sync::{Arc, Mutex};
 
+use std::io::{Read, Write};
+
 use ncurses::*;
 
 const INPUT_WINDOW_HEIGHT: usize = 3;
@@ -24,6 +26,35 @@ fn connect() -> std::io::Result<net::TcpStream> {
     net::TcpStream::connect(input)
 }
 
+fn identify(stream: &mut net::TcpStream) -> Result<(), ()> {
+    clear();
+    printw("Username: ");
+    let mut input = String::new();
+    getstr(&mut input);
+
+    stream.write(format!("IDENTIFY {}", input).as_bytes()).expect("identify write");
+    stream.flush().expect("identify flush");
+
+    let mut buf = [0; 1024];
+    match stream.read(&mut buf) {
+        Ok(0) => {
+
+        },
+        Ok(bytes_read) => {
+            let message = std::str::from_utf8(&buf).expect("from_utf8");
+
+            if !message.starts_with("0") {
+                return Err(());
+            }
+        },
+        _ => {
+            return Err(());
+        }
+    }
+
+    Ok(())
+}
+
 fn main() {
     initscr();
     
@@ -42,6 +73,14 @@ fn main() {
         },
     };
 
+    loop {
+        if let Ok(_) = identify(&mut stream) {
+            break;
+        }
+
+        mvprintw(1, 0, "username unavailable, try again\n");
+    }
+
     let room_window = mkwin(scr_height - INPUT_WINDOW_HEIGHT as i32, ROOM_WINDOW_WIDTH as i32, 0, 0);
 
     let chat_window = mkwin(scr_height - INPUT_WINDOW_HEIGHT as i32, scr_width - ROOM_WINDOW_WIDTH as i32, 0, ROOM_WINDOW_WIDTH as i32);
@@ -51,7 +90,20 @@ fn main() {
     let mut input_col = 0;
     keypad(input_window, true);
 
-    
+    let ncurse = Arc::new(Mutex::new(()));
+
+    let lk = ncurse.clone();
+    let ui = std::thread::spawn(move || {
+        
+    });
+
+    let lk = ncurse.clone();
+    let message = std::thread::spawn(move || {
+        
+    });
+
+    ui.join().expect("ui thread panic");
+    message.join().expect("message thread panic");
 
     getch();
 
