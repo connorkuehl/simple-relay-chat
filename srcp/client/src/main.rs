@@ -111,7 +111,10 @@ fn main() {
 
                 let incoming: Vec<_> = trimmed.split("\n").collect();
                 for msg in incoming {
-                    if messages.len() as i32 >= scr_height - INPUT_WINDOW_HEIGHT as i32 - 1 as i32 {
+                    let mut x = 0;
+                    let mut y = 0;
+                    getyx(chat_window, &mut y, &mut x);
+                    if y <= 1 {
                         messages.pop_front();
                     }
                     messages.push_back(String::from(msg));
