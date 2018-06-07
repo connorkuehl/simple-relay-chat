@@ -1,6 +1,7 @@
 extern crate ncurses;
 
 mod ui;
+mod server;
 
 const INPUT_WINDOW_HEIGHT: usize = 3;
 const ROOM_WINDOW_WIDTH: usize = 16;
