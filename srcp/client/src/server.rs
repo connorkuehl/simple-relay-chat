@@ -12,10 +12,10 @@ pub struct Server {
 impl Server {
     pub fn new(addr: &str) -> std::io::Result<Server> {
         let stream = net::TcpStream::connect(addr)?;
+        let mut r = HashMap::new();
 
-        Ok(Server {
-            conn: stream,
-            rooms: HashMap::new(),
-        })
+        r.insert(String::from(::DEFAULT_ROOM), VecDeque::new());
+
+        Ok( Server { conn: stream, rooms: r, } )
     }
 }
