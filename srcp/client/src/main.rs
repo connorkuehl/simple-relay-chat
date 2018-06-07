@@ -35,10 +35,19 @@ fn main() {
 
     let mut buf = String::new();
     loop {
+        if buf.len() == 0 {
+            ncurses::wmove(ui.win(input_win).expect("input win"), 1, 1);
+        }
+        
         match ui.readline(input_win, &mut buf) {
             Ok(_) => {
                 ncurses::wprintw(ui.win(chat_win).unwrap(), &buf.clone());
                 ncurses::wrefresh(ui.win(chat_win).unwrap());
+
+                let inwin = ui.win(input_win).expect("input win");
+                ncurses::wmove(inwin, 1, 1);
+                ncurses::wclear(inwin);
+                ncurses::box_(inwin, 0, 0);
                 buf = String::new();
             },
             Err(e) => {
