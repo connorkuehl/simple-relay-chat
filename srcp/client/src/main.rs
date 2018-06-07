@@ -8,8 +8,8 @@ const ROOM_WINDOW_WIDTH: usize = 16;
 
 fn main() {
     let mut ui = ui::Ui::new();
-    let mut server = server::Server::new("localhost:6667")
-        .expect("failed to connect");
+    let mut server = server::Server::new("localhost:6667");
+//        .expect("failed to connect");
     ncurses::keypad(ncurses::stdscr(), true);
     ncurses::noecho();
     ncurses::cbreak();

@@ -1,8 +1,12 @@
 use ::std;
 use std::net;
 
+use std::collections::HashMap;
+use std::collections::VecDeque;
+
 pub struct Server {
     conn: net::TcpStream,
+    rooms: HashMap<String, VecDeque<String>>,
 }
 
 impl Server {
@@ -11,6 +15,7 @@ impl Server {
 
         Ok(Server {
             conn: stream,
+            rooms: HashMap::new(),
         })
     }
 }
