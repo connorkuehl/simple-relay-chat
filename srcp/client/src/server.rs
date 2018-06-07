@@ -11,6 +11,9 @@ pub struct Server {
 impl Server {
     pub fn new(addr: &str) -> std::io::Result<Server> {
         let stream = net::TcpStream::connect(addr)?;
+        stream.set_read_timeout(Some(std::time::Duration::from_millis(85)))
+            .expect("set_read_timeout");
+            
         let mut r = HashMap::new();
 
         r.insert(String::from(::DEFAULT_ROOM), vec![]);
