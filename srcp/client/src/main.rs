@@ -81,9 +81,10 @@ fn main() {
         0).expect("input window");
 
     let mut curr_room = String::from(DEFAULT_ROOM);
+    let rooms = server.get_rooms();
     let mut room_msgs = server.get_messages(&curr_room)
         .expect("default room");
-    fill_room_window(room_win, &[curr_room]);
+    fill_room_window(room_win, &rooms);
     ncurses::wrefresh(room_win);
 
     // Input update loop - a single-threaded compromise
@@ -104,7 +105,6 @@ fn main() {
     // them to the appropriate data structures.
 
     let mut buf = String::new();
-    let mut test_chat = vec![];
     loop {
         if buf.len() == 0 {
             ncurses::wmove(input_win, 1, 1);
@@ -112,10 +112,8 @@ fn main() {
         
         match ui.readline(input_win, &mut buf) {
             Ok(_) => {
-                test_chat.push(buf.clone());
-                ui::clear_and_box(chat_win);
-                fill_chat_window(chat_win, &test_chat);
-                ncurses::wrefresh(chat_win);
+                // Dispatch message.
+                server.send(&buf.clone());
 
                 // Clean up the input window, clear the contents,
                 // reset the buffer, and move the input cursor back
@@ -132,6 +130,20 @@ fn main() {
                     _ => break,
                 }
             }
+        }
+
+        // Check server for new messages. Updates the chat and room
+        // windows.
+        if server.update().is_some() {
+            let new_messages = server.get_messages("server").expect("curr room");
+            ui::clear_and_box(chat_win);
+            fill_chat_window(chat_win, &new_messages);
+            ncurses::wrefresh(chat_win);
+
+            let rooms = server.get_rooms();
+            ui::clear_and_box(room_win);
+            fill_room_window(room_win, &rooms);
+            ncurses::wrefresh(room_win);
         }
     }
 }
