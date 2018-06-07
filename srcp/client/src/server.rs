@@ -25,4 +25,13 @@ impl Server {
             None
         }
     }
+
+    pub fn get_rooms(&self) -> Vec<String> {
+        let r: Vec<_> = self.rooms
+            .keys()
+            .map(|s| s.clone())
+            .collect();
+
+        r
+    }
 }
