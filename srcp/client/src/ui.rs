@@ -92,3 +92,38 @@ pub fn clear_and_box(window: ncurses::WINDOW) {
     ncurses::wclear(window);
     ncurses::box_(window, 0, 0);
 }
+
+pub fn fill_from_top_down(window: ncurses::WINDOW, lines: &[String]) {
+    let mut rows = 0;
+    let mut cols = 0;
+    ncurses::getmaxyx(window, &mut rows, &mut cols);
+    rows -= 1;
+
+    let to_print = std::cmp::min(lines.len(), rows as usize - 1);
+
+    ncurses::wmove(window, 1, 1);
+    for line in lines {
+        let withnl = format!("{}\n", line);
+        ncurses::mvwprintw(window,
+                           1,
+                           1,
+                           &line);
+    }
+}
+
+pub fn fill_from_bottom_up(window: ncurses::WINDOW, lines: &[String]) {
+    let mut rows = 0;
+    let mut cols = 0;
+    ncurses::getmaxyx(window, &mut rows, &mut cols);
+    rows -= 1;
+
+    let to_print = std::cmp::min(lines.len(), rows as usize - 1);
+
+    ncurses::wmove(window, rows - 1, 1);
+    for i in 0..to_print {
+        ncurses::mvwprintw(window,
+                rows - i as i32 - 1,
+                1,
+                &lines[lines.len() - i - 1]);
+    }
+}

@@ -8,46 +8,11 @@ const INPUT_WINDOW_HEIGHT: usize = 3;
 const ROOM_WINDOW_WIDTH: usize = 16;
 
 fn fill_room_window(room_window: ncurses::WINDOW, lines: &[String]) {
-    fill_from_top_down(room_window, lines);
-}
-
-fn fill_from_top_down(window: ncurses::WINDOW, lines: &[String]) {
-    let mut rows = 0;
-    let mut cols = 0;
-    ncurses::getmaxyx(window, &mut rows, &mut cols);
-    rows -= 1;
-
-    let to_print = std::cmp::min(lines.len(), rows as usize - 1);
-
-    ncurses::wmove(window, 1, 1);
-    for line in lines {
-        let withnl = format!("{}\n", line);
-        ncurses::mvwprintw(window,
-                           1,
-                           1,
-                           &line);
-    }
+    ui::fill_from_top_down(room_window, lines);
 }
 
 fn fill_chat_window(chat_window: ncurses::WINDOW, lines: &[String]) {
-    fill_from_bottom_up(chat_window, lines);
-}
-
-fn fill_from_bottom_up(window: ncurses::WINDOW, lines: &[String]) {
-    let mut rows = 0;
-    let mut cols = 0;
-    ncurses::getmaxyx(window, &mut rows, &mut cols);
-    rows -= 1;
-
-    let to_print = std::cmp::min(lines.len(), rows as usize - 1);
-
-    ncurses::wmove(window, rows - 1, 1);
-    for i in 0..to_print {
-        ncurses::mvwprintw(window,
-                rows - i as i32 - 1,
-                1,
-                &lines[lines.len() - i - 1]);
-    }
+    ui::fill_from_bottom_up(chat_window, lines);
 }
 
 fn main() {
