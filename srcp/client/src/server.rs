@@ -1,6 +1,8 @@
 use ::std;
 use std::net;
 
+use std::io::{Read, Write};
+
 use std::collections::HashMap;
 
 pub struct Server {
@@ -21,9 +23,43 @@ impl Server {
         Ok( Server { conn: stream, rooms: r, } )
     }
 
-    pub fn get_messages(&self, room: &str) -> Option<&[String]> {
+    pub fn send(&mut self, message: &str) {
+        self.conn.write(message.as_bytes());
+        self.conn.flush();
+    }
+
+    pub fn update(&mut self) -> Option<()> {
+        let mut buf = [0; 1024];
+        match self.conn.read(&mut buf) {
+            Ok(0) => {
+
+            },
+            Ok(bytes_read) => {
+                let message = std::str::from_utf8(&buf[0..bytes_read])
+                    .expect("from_utf8");
+                let message = message.trim();
+
+                let srvr = self.rooms.get_mut("server")
+                    .expect("default room missing");
+
+                let all_messages = message.split("\n");
+                for msg in all_messages {
+                    srvr.push(message.to_string());
+                }
+
+                return Some(());
+            },
+            Err(e) => match e.kind() {
+                std::io::ErrorKind::WouldBlock => return None,
+                _ => (),
+            },
+        }
+        None
+    }
+
+    pub fn get_messages(&self, room: &str) -> Option<Vec<String>> {
         if let Some(messages) = self.rooms.get(room) {
-            Some(messages.as_slice())
+            Some(messages.clone())
         } else {
             None
         }
