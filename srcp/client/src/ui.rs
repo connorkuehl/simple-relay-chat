@@ -1,3 +1,4 @@
+use ::std;
 use ::std::collections::HashMap;
 
 use ::ncurses;
@@ -49,6 +50,49 @@ impl Ui {
         ncurses::wrefresh(w);
 
         Ok(wid)
+    }
+
+    pub fn readline(&self,
+                    window: Wid,
+                    buf: &mut String) -> Result<(), std::io::Error> {
+        
+        let w = match self.windows.get(&window) {
+            Some(win) => win,
+            None => return Err(
+                std::io::Error::new(
+                    std::io::ErrorKind::NotFound,
+                    "window not found")),
+            };
+        
+        let ch = ncurses::wgetch(*w);
+        if ncurses::ERR != ch {
+            match ch {
+                ncurses::KEY_BACKSPACE => {
+                    buf.pop();
+                },
+                _ => {
+                    if let Some(ch) = std::char::from_u32(ch as u32) {
+                        match ch {
+                            '\n' => return Ok(()),
+                            _ => {
+                                buf.push(ch);
+                                ncurses::wechochar(*w, ch as u64);
+                            },
+                        }
+                    }
+                },
+            }
+        }
+        
+        Err(std::io::Error::new(std::io::ErrorKind::WouldBlock, "read timeout"))
+    }
+
+    pub fn win(&self, wid: Wid) -> Option<ncurses::WINDOW> {
+        if let Some(win) = self.windows.get(&wid) {
+            Some(*win)
+        } else {
+            None
+        }
     }
 
     pub fn rows(&self) -> usize {
