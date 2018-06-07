@@ -8,17 +8,21 @@ const INPUT_WINDOW_HEIGHT: usize = 3;
 const ROOM_WINDOW_WIDTH: usize = 16;
 
 fn fill_room_window(room_window: ncurses::WINDOW, lines: &[String]) {
+    fill_from_top_down(room_window, lines);
+}
+
+fn fill_from_top_down(window: ncurses::WINDOW, lines: &[String]) {
     let mut rows = 0;
     let mut cols = 0;
-    ncurses::getmaxyx(room_window, &mut rows, &mut cols);
+    ncurses::getmaxyx(window, &mut rows, &mut cols);
     rows -= 1;
 
     let to_print = std::cmp::min(lines.len(), rows as usize - 1);
 
-    ncurses::wmove(room_window, 1, 1);
+    ncurses::wmove(window, 1, 1);
     for line in lines {
         let withnl = format!("{}\n", line);
-        ncurses::mvwprintw(room_window,
+        ncurses::mvwprintw(window,
                            1,
                            1,
                            &line);
