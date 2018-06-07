@@ -87,3 +87,8 @@ impl Drop for Ui {
         ncurses::endwin();
     }
 }
+
+pub fn clear_and_box(window: ncurses::WINDOW) {
+    ncurses::wclear(window);
+    ncurses::box_(window, 0, 0);
+}
