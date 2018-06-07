@@ -3,13 +3,10 @@ use ::std::collections::HashMap;
 
 use ::ncurses;
 
-type Wid = usize;
-
 pub struct Ui {
     rows: usize,
     cols: usize,
-    nextwid: Wid,
-    windows: HashMap<Wid, ncurses::WINDOW>,
+    windows: Vec<ncurses::WINDOW>,
 }
 
 impl Ui {
@@ -22,8 +19,7 @@ impl Ui {
         Ui {
             rows: r as usize,
             cols: c as usize,
-            nextwid: 1,
-            windows: HashMap::new(),
+            windows: vec![],
         }
     }
 
@@ -32,39 +28,26 @@ impl Ui {
         row: usize,
         col: usize,
         x: usize,
-        y: usize) -> Result<Wid, ()> {
+        y: usize) -> Result<ncurses::WINDOW, ()> {
         let w = ncurses::newwin(row as i32, col as i32, x as i32, y as i32);
         if w.is_null() {
             return Err(());
         }
 
-        let wid = self.nextwid;
-
-        if self.windows.insert(wid, w).is_some() {
-            return Err(());
-        }
-        
-        self.nextwid += 1;
-
         ncurses::box_(w, 0, 0);
         ncurses::wrefresh(w);
 
-        Ok(wid)
+        self.windows.push(w);
+
+        Ok(w)
     }
 
     pub fn readline(&self,
-                    window: Wid,
+                    window: ncurses::WINDOW,
                     buf: &mut String) -> Result<(), std::io::Error> {
+        let w = window;
         
-        let w = match self.windows.get(&window) {
-            Some(win) => win,
-            None => return Err(
-                std::io::Error::new(
-                    std::io::ErrorKind::NotFound,
-                    "window not found")),
-            };
-        
-        let ch = ncurses::wgetch(*w);
+        let ch = ncurses::wgetch(w);
         if ncurses::ERR != ch {
             match ch {
                 ncurses::KEY_BACKSPACE => {
@@ -76,7 +59,7 @@ impl Ui {
                             '\n' => return Ok(()),
                             _ => {
                                 buf.push(ch);
-                                ncurses::wechochar(*w, ch as u64);
+                                ncurses::wechochar(w, ch as u64);
                             },
                         }
                     }
@@ -85,14 +68,6 @@ impl Ui {
         }
         
         Err(std::io::Error::new(std::io::ErrorKind::WouldBlock, "read timeout"))
-    }
-
-    pub fn win(&self, wid: Wid) -> Option<ncurses::WINDOW> {
-        if let Some(win) = self.windows.get(&wid) {
-            Some(*win)
-        } else {
-            None
-        }
     }
 
     pub fn rows(&self) -> usize {
@@ -106,7 +81,7 @@ impl Ui {
 
 impl Drop for Ui {
     fn drop(&mut self) {
-        for window in self.windows.values() {
+        for window in &self.windows {
             ncurses::delwin(*window);
         }
         ncurses::endwin();

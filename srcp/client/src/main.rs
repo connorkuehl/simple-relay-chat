@@ -55,24 +55,21 @@ fn main() {
     let mut buf = String::new();
     loop {
         if buf.len() == 0 {
-            ncurses::wmove(ui.win(input_win).expect("input win"), 1, 1);
+            ncurses::wmove(input_win, 1, 1);
         }
         
         match ui.readline(input_win, &mut buf) {
             Ok(_) => {
-                let chatwin = ui.win(chat_win).expect("chat win");
-
                 // TODO: remove me after testing...
-                ncurses::wprintw(chatwin, &buf.clone());
-                ncurses::wrefresh(chatwin);
+                ncurses::wprintw(chat_win, &buf.clone());
+                ncurses::wrefresh(chat_win);
 
                 // Clean up the input window, clear the contents,
                 // reset the buffer, and move the input cursor back
                 // to its initial position.
-                let inwin = ui.win(input_win).expect("input win");
-                ncurses::wmove(inwin, 1, 1);
-                ncurses::wclear(inwin);
-                ncurses::box_(inwin, 0, 0);
+                ncurses::wmove(input_win, 1, 1);
+                ncurses::wclear(input_win);
+                ncurses::box_(input_win, 0, 0);
                 buf = String::new();
             },
             Err(e) => {
