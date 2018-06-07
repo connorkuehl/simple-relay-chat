@@ -8,7 +8,21 @@ const INPUT_WINDOW_HEIGHT: usize = 3;
 const ROOM_WINDOW_WIDTH: usize = 16;
 
 fn fill_room_window(room_window: ncurses::WINDOW, lines: &[String]) {
-    
+    let mut rows = 0;
+    let mut cols = 0;
+    ncurses::getmaxyx(room_window, &mut rows, &mut cols);
+    rows -= 1;
+
+    let to_print = std::cmp::min(lines.len(), rows as usize - 1);
+
+    ncurses::wmove(room_window, 1, 1);
+    for line in lines {
+        let withnl = format!("{}\n", line);
+        ncurses::mvwprintw(room_window,
+                           1,
+                           1,
+                           &line);
+    }
 }
 
 fn fill_chat_window(chat_window: ncurses::WINDOW, lines: &[String]) {
@@ -62,6 +76,12 @@ fn main() {
         rows - INPUT_WINDOW_HEIGHT,
         0).expect("input window");
 
+    let mut curr_room = String::from(DEFAULT_ROOM);
+    let mut room_msgs = server.get_messages(&curr_room)
+        .expect("default room");
+    fill_room_window(room_win, &[curr_room]);
+    ncurses::wrefresh(room_win);
+
     // Input update loop - a single-threaded compromise
     // for a simple client implementation.
     //
@@ -78,10 +98,7 @@ fn main() {
     // The socket is checked with timeouts. If there is data
     // waiting, the client will parse the lines and commit
     // them to the appropriate data structures.
-    let mut curr_room = String::from(DEFAULT_ROOM);
-    let mut room_msgs = server.get_messages(&curr_room)
-        .expect("default room");
-    
+
     let mut buf = String::new();
     let mut test_chat = vec![];
     loop {
