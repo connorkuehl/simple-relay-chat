@@ -7,10 +7,35 @@ const DEFAULT_ROOM: &str = "server";
 const INPUT_WINDOW_HEIGHT: usize = 3;
 const ROOM_WINDOW_WIDTH: usize = 16;
 
+fn fill_room_window(room_window: ncurses::WINDOW, lines: &[String]) {
+    
+}
+
+fn fill_chat_window(chat_window: ncurses::WINDOW, lines: &[String]) {
+    fill_from_bottom_up(chat_window, lines);
+}
+
+fn fill_from_bottom_up(window: ncurses::WINDOW, lines: &[String]) {
+    let mut rows = 0;
+    let mut cols = 0;
+    ncurses::getmaxyx(window, &mut rows, &mut cols);
+    rows -= 1;
+
+    let to_print = std::cmp::min(lines.len(), rows as usize - 1);
+
+    ncurses::wmove(window, rows - 1, 1);
+    for i in 0..to_print {
+        ncurses::mvwprintw(window,
+                rows - i as i32 - 1,
+                1,
+                &lines[lines.len() - i - 1]);
+    }
+}
+
 fn main() {
     let mut ui = ui::Ui::new();
-    let mut server = server::Server::new("localhost:6667");
-//        .expect("failed to connect");
+    let mut server = server::Server::new("localhost:6667")
+        .expect("failed to connect");
     ncurses::keypad(ncurses::stdscr(), true);
     ncurses::noecho();
     ncurses::cbreak();
@@ -53,7 +78,12 @@ fn main() {
     // The socket is checked with timeouts. If there is data
     // waiting, the client will parse the lines and commit
     // them to the appropriate data structures.
+    let mut curr_room = String::from(DEFAULT_ROOM);
+    let mut room_msgs = server.get_messages(&curr_room)
+        .expect("default room");
+    
     let mut buf = String::new();
+    let mut test_chat = vec![];
     loop {
         if buf.len() == 0 {
             ncurses::wmove(input_win, 1, 1);
@@ -61,16 +91,16 @@ fn main() {
         
         match ui.readline(input_win, &mut buf) {
             Ok(_) => {
-                // TODO: remove me after testing...
-                ncurses::wprintw(chat_win, &buf.clone());
+                test_chat.push(buf.clone());
+                ui::clear_and_box(chat_win);
+                fill_chat_window(chat_win, &test_chat);
                 ncurses::wrefresh(chat_win);
 
                 // Clean up the input window, clear the contents,
                 // reset the buffer, and move the input cursor back
                 // to its initial position.
                 ncurses::wmove(input_win, 1, 1);
-                ncurses::wclear(input_win);
-                ncurses::box_(input_win, 0, 0);
+                ui::clear_and_box(input_win);
                 buf = String::new();
             },
             Err(e) => {
