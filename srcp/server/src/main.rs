@@ -1,3 +1,5 @@
+extern crate common;
+
 extern crate threadpool;
 
 use threadpool::ThreadPool;
@@ -7,10 +9,9 @@ use std::thread;
 use std::sync;
 use std::io::Read;
 
-use command::Command;
 use server::Server;
 
-mod command;
+use common::Command;
 mod server;
 
 // Max number of supported clients for the server.

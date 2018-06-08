@@ -2,8 +2,13 @@
 name = "client"
 version = "0.1.0"
 dependencies = [
+ "common 0.1.0",
  "ncurses 5.91.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
+
+[[package]]
+name = "common"
+version = "0.1.0"
 
 [[package]]
 name = "gcc"
@@ -42,6 +47,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 name = "server"
 version = "0.1.0"
 dependencies = [
+ "common 0.1.0",
  "threadpool 1.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
