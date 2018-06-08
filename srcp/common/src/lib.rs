@@ -1,3 +1,29 @@
+pub struct Message {
+    pub code: usize,
+    pub sender: String,
+    pub time: usize,
+    pub room: String,
+    pub body: String,
+}
+
+impl Message {
+    pub fn try_new(s: &str) -> Result<Self, ()> {
+        let pieces: Vec<&str> = s.split_whitespace().collect();
+
+        if pieces.len() < 5 {
+            return Err(());
+        }
+
+        Ok( Self {
+            code: pieces[0].parse::<usize>().unwrap(),
+            sender: String::from(pieces[1]),
+            time: pieces[2].parse::<usize>().unwrap(),
+            room: String::from(pieces[3]),
+            body: pieces[4..pieces.len()].join(" "),
+        })
+    }
+}
+
 pub enum Command {
     // IDENTIFY nickname
     Identify(String),
