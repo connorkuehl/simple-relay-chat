@@ -56,8 +56,10 @@ impl Server {
                             servermsgs.push(msg.to_string());
                         },
                     }
-                }
 
+                    self.react(msg);
+                }
+                
                 return Some(());
             },
             Err(e) => match e.kind() {
@@ -66,6 +68,26 @@ impl Server {
             },
         }
         None
+    }
+
+    fn react(&mut self, s: &str) {
+        let pieces: Vec<_> = s.split_whitespace().collect();
+        if pieces.len() < 5 {
+            return;
+        }
+
+        let c = &pieces[4..pieces.len()].join(" ");
+        let command = Command::new(c);
+
+        match command {
+            Command::Leave(room) => {
+                self.rooms.remove(&room);
+            },
+            Command::Quit => {
+                self.rooms = HashMap::new();
+            }
+            _ => (),
+        }
     }
 
     pub fn get_messages(&self, room: &str) -> Option<Vec<String>> {
