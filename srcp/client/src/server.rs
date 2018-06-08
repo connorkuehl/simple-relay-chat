@@ -50,7 +50,11 @@ impl Server {
                                 .or_insert(vec![]);
                             chathist.push(msg.to_string());
                         },
-                        _ => (),
+                        _ => {
+                            let mut servermsgs = self.rooms.get_mut(::DEFAULT_ROOM)
+                                .expect("no default room");
+                            servermsgs.push(msg.to_string());
+                        },
                     }
                 }
 
