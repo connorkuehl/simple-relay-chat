@@ -5,6 +5,8 @@ use std::io::{Read, Write};
 
 use std::collections::HashMap;
 
+use ::common::{Command, Message};
+
 pub struct Server {
     conn: net::TcpStream,
     rooms: HashMap<String, Vec<String>>,
@@ -24,8 +26,8 @@ impl Server {
     }
 
     pub fn send(&mut self, message: &str) {
-        self.conn.write(message.as_bytes());
-        self.conn.flush();
+        self.conn.write(message.as_bytes()).expect("write");
+        self.conn.flush().expect("flush");
     }
 
     pub fn update(&mut self) -> Option<()> {
@@ -39,12 +41,17 @@ impl Server {
                     .expect("from_utf8");
                 let message = message.trim();
 
-                let srvr = self.rooms.get_mut("server")
-                    .expect("default room missing");
-
                 let all_messages = message.split("\n");
+
                 for msg in all_messages {
-                    srvr.push(message.to_string());
+                    match Message::try_new(&msg) {
+                        Ok(m) => {
+                            let mut chathist = self.rooms.entry(m.room)
+                                .or_insert(vec![]);
+                            chathist.push(msg.to_string());
+                        },
+                        _ => (),
+                    }
                 }
 
                 return Some(());
