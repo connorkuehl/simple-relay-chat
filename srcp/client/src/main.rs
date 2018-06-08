@@ -101,7 +101,7 @@ fn main() {
         // Check server for new messages. Updates the chat and room
         // windows.
         if server.update().is_some() {
-            let new_messages = server.get_messages("server").expect("curr room");
+            let new_messages = server.get_messages(&curr_room).expect("curr room");
             ui::clear_and_box(chat_win);
             fill_chat_window(chat_win, &new_messages);
             ncurses::wrefresh(chat_win);
