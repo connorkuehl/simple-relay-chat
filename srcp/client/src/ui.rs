@@ -3,6 +3,8 @@ use ::std::collections::HashMap;
 
 use ::ncurses;
 
+type Key = i32;
+
 pub struct Ui {
     rows: usize,
     cols: usize,
@@ -44,7 +46,8 @@ impl Ui {
 
     pub fn readline(&self,
                     window: ncurses::WINDOW,
-                    buf: &mut String) -> Result<(), std::io::Error> {
+                    buf: &mut String)
+                    -> Result<Key, std::io::Error> {
         let w = window;
         
         let ch = ncurses::wgetch(w);
@@ -53,10 +56,12 @@ impl Ui {
                 ncurses::KEY_BACKSPACE => {
                     buf.pop();
                 },
+                ncurses::KEY_UP => return Ok(ncurses::KEY_UP),
+                ncurses::KEY_DOWN => return Ok(ncurses::KEY_DOWN),
                 _ => {
                     if let Some(ch) = std::char::from_u32(ch as u32) {
                         match ch {
-                            '\n' => return Ok(()),
+                            '\n' => return Ok(ncurses::KEY_ENTER),
                             _ => {
                                 buf.push(ch);
                                 ncurses::wechochar(w, ch as u64);
