@@ -2,8 +2,6 @@ extern crate common;
 extern crate chrono;
 extern crate ncurses;
 
-use std::collections::HashMap;
-
 mod ui;
 mod server;
 
@@ -20,7 +18,6 @@ fn fill_chat_window(chat_window: ncurses::WINDOW, lines: &[String]) {
 }
 
 fn change_room(room_window: ncurses::WINDOW,
-               chat_window: ncurses::WINDOW,
                curr: &mut String,
                server: &server::Server,
                up: bool) -> (String, Vec<String>) {
@@ -32,7 +29,7 @@ fn change_room(room_window: ncurses::WINDOW,
         None => 0,
     };
 
-    let mut len = rooms.len();
+    let len = rooms.len();
     if len > 0 {
         if up {
             if index > 0 {
@@ -144,21 +141,21 @@ fn main() {
                         buf = String::new();
                     },
                     ncurses::KEY_UP => {
-                        let (new_room, new_msgs) = change_room(room_win,
-                                    chat_win,
-                                    &mut curr_room,
-                                    &server,
-                                    true);
+                        let (new_room, new_msgs) = change_room(
+                            room_win,
+                            &mut curr_room,
+                            &server,
+                            true);
                         curr_room = new_room;
 
                         update_chat_room(chat_win, &new_msgs);
                     },
                     ncurses::KEY_DOWN => {
-                        let (new_room, new_msgs) = change_room(room_win,
-                                    chat_win,
-                                    &mut curr_room,
-                                    &server,
-                                    false);
+                        let (new_room, new_msgs) = change_room(
+                            room_win,
+                            &mut curr_room,
+                            &server,
+                            false);
                         curr_room = new_room;
 
                         update_chat_room(chat_win, &new_msgs);
@@ -171,8 +168,7 @@ fn main() {
                 match e.kind() {
                     // This means a time out has occurred
                     std::io::ErrorKind::WouldBlock => (),
-                    // TODO: this is an actual error.
-                    _ => break,
+                    _ => (),
                 }
             }
         }

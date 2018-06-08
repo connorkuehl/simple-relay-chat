@@ -7,7 +7,7 @@ use std::io::{Read, Write};
 use std::collections::HashMap;
 
 use ::common::{Command, Message};
-use chrono::{TimeZone, Timelike, Local, DateTime};
+use chrono::{TimeZone, Timelike};
 
 pub struct Server {
     conn: net::TcpStream,

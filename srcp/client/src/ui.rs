@@ -1,5 +1,4 @@
 use ::std;
-use ::std::collections::HashMap;
 
 use ::ncurses;
 
