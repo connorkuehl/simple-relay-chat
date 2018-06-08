@@ -1,4 +1,5 @@
 extern crate common;
+extern crate chrono;
 extern crate ncurses;
 
 use std::collections::HashMap;

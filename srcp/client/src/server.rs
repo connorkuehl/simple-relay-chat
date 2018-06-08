@@ -1,4 +1,5 @@
 use ::std;
+use ::chrono;
 use std::net;
 
 use std::io::{Read, Write};
@@ -6,6 +7,7 @@ use std::io::{Read, Write};
 use std::collections::HashMap;
 
 use ::common::{Command, Message};
+use chrono::{TimeZone, Timelike, Local, DateTime};
 
 pub struct Server {
     conn: net::TcpStream,
@@ -48,7 +50,10 @@ impl Server {
                         Ok(m) => {
                             let mut chathist = self.rooms.entry(m.room)
                                 .or_insert(vec![]);
-                            chathist.push(msg.to_string());
+
+                            let dt = chrono::Utc.timestamp(m.time as i64, 0);
+                            let human_friendly = format!("[{}:{}] {}: {}", dt.hour(), dt.minute(), m.sender, m.body);
+                            chathist.push(human_friendly);
                         },
                         _ => {
                             let mut servermsgs = self.rooms.get_mut(::DEFAULT_ROOM)

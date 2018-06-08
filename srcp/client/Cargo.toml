@@ -6,3 +6,4 @@ authors = ["Connor Kuehl <cipkuehl@gmail.com>"]
 [dependencies]
 common = { path = "../common" }
 ncurses = "5.91.0"
+chrono = "0.4.2"
