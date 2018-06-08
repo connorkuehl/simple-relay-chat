@@ -102,7 +102,7 @@ pub fn fill_from_top_down(window: ncurses::WINDOW, lines: &[String]) {
     let to_print = std::cmp::min(lines.len(), rows as usize - 1);
 
     ncurses::wmove(window, 1, 1);
-    for i in 0..lines.len() {
+    for i in 0..to_print {
         ncurses::mvwprintw(window, i as i32 + 1, 1, &lines[i]);
     }
 }
