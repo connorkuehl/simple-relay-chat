@@ -52,7 +52,7 @@ impl Server {
                                 .or_insert(vec![]);
 
                             let dt = chrono::Utc.timestamp(m.time as i64, 0);
-                            let human_friendly = format!("[{}:{}] {}: {}", dt.hour(), dt.minute(), m.sender, m.body);
+                            let human_friendly = format!("[{:02}:{:02}] {}: {}", dt.hour(), dt.minute(), m.sender, m.body);
                             chathist.push(human_friendly);
                         },
                         _ => {
