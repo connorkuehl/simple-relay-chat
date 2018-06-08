@@ -4,7 +4,7 @@ use ::std::io::Write;
 use ::std::collections::{HashSet, HashMap};
 
 use ::Event;
-use ::Command;
+use ::common::{Command, StatusCode};
 
 // Cancels event execution and shuts down the connection
 // if the invoking client has not identified themselves.
@@ -60,19 +60,20 @@ impl Server {
 
     // Executes a command received by a client thread.
     pub fn exec(&mut self, mut event: Event) {
-        let reply = match event.command {
+        let (code, resp) = match event.command {
             Command::Identify(username) => {
                 if self.clients.iter().any(|c| c.name.eq(&username)) {
                     // Respond with error that it is already taken.
+                    (StatusCode::UsernameUnavailable, event.raw)
                 } else {
                     self.clients.push(Client {
                         name: username,
                         connection: event.from.try_clone().expect("try_clone"),
                         rooms: HashSet::new(),
                     });
-                }
 
-                event.raw
+                    (StatusCode::Ok, event.raw)
+                }
             },
             _ => { 
                 // These commands may only be invoked after a client has identified
@@ -89,18 +90,23 @@ impl Server {
                         self.clients[index].rooms.insert(room.clone());
 
                         let list = self.rooms.entry(room.clone()).or_insert(vec![]);
-                        list.push(self.clients[index].clone());
 
-                        // Announce that this client has joined.
-                        let joinmsg = Server::create_message(
-                            0, 
-                            &format!("{} has joined.", self.clients[index].name), 
-                            "server", 
-                            &room
-                        );
-                        Server::say(list.as_mut_slice(), &joinmsg);
+                        if list.iter().any(|c| c.name.eq(&sender_name)) {
+                            (StatusCode::AlreadyJoined, event.raw)
+                        } else {
+                            list.push(self.clients[index].clone());
 
-                        event.raw
+                            // Announce that this client has joined.
+                            let joinmsg = Server::create_message(
+                                0, 
+                                &format!("{} has joined.", self.clients[index].name), 
+                                "server", 
+                                &room
+                            );
+                            Server::say(list.as_mut_slice(), &joinmsg);
+
+                            (StatusCode::Ok, event.raw)
+                        }
                     },
                     // Lists all rooms or lists the people in that room depending on if
                     // an Option argument is given.
@@ -111,37 +117,39 @@ impl Server {
                                 // room exists
                                 Some(rm) => {
                                     let usernames: Vec<String> = rm.iter().map(|c| c.name.clone()).collect();
-                                    usernames.join(" ")
+                                    (StatusCode::Ok, usernames.join(" "))
                                 },
                                 None => {
                                     // Error
-                                    String::from("room doesn't exist")
+                                    (StatusCode::RoomDoesntExist, event.raw)
                                 },
                             }
                         } else {
                             // User did not provide a room name, so list all the rooms on the server.
                             let rooms: Vec<String> = self.rooms.keys().map(|k| k.clone()).collect();
-                            rooms.join(" ")
+                            (StatusCode::Ok, rooms.join(" "))
                         }
                     },
                     // Sends a message to a room.
                     Command::Say(room, message) => {
                         self.on_say(&room, &sender_name, &message);
 
-                        event.raw
+                        (StatusCode::Ok, event.raw)
                     },
                     // Sends a private message to a connected client.
                     Command::Whisper(to, message) => {
-                        match self.clients.iter().position(|c| c.name.eq(&to)) {
+                        let rc = match self.clients.iter().position(|c| c.name.eq(&to)) {
                             Some(index) => {
                                 let recipient = self.clients[index].clone();
                                 let message = Server::create_message(0, &message, &sender_name, &to);
                                 Server::say(&mut[recipient], &message);
+
+                                StatusCode::Ok
                             },
-                            None => (),
-                        }
+                            None => StatusCode::UserDoesntExist, 
+                        };
                         
-                        event.raw
+                        (rc, event.raw)
                     },
                     // Broadcasts a message to all rooms.
                     Command::Shout(message) => {
@@ -151,13 +159,13 @@ impl Server {
                             self.on_say(&room, &sender_name, &message);
                         }
 
-                        event.raw
+                        (StatusCode::Ok, event.raw)
                     },
                     // Leaves a room.
                     Command::Leave(room) => {
                         self.on_leave(&room, &sender_name, index);
 
-                        event.raw
+                        (StatusCode::Ok, event.raw)
                     },
                     // Disconnects from the server; as a consequence, leaves all
                     // rooms, too.
@@ -175,15 +183,15 @@ impl Server {
                         // remove from list of clients
                         self.clients.remove(index);
 
-                        event.raw
+                        (StatusCode::Ok, event.raw)
                     },
-                    _ => String::from("unknown"),
+                    _ => (StatusCode::PoorlyFormedCommand, event.raw),
                 }
             }
         };
 
         // Echo the command that was just processed back to the client.
-        let reply = Server::create_message(0, &reply, "server", "server");
+        let reply = Server::create_message(code as usize, &resp, "server", "server");
 
         Server::say(
             &mut [Client { 
