@@ -1,3 +1,12 @@
+pub enum StatusCode {
+    Ok = 0,
+    RoomDoesntExist,
+    UserDoesntExist,
+    PoorlyFormedCommand,
+    UsernameUnavailable,
+    AlreadyJoined,
+}
+
 pub struct Message {
     pub code: usize,
     pub sender: String,
